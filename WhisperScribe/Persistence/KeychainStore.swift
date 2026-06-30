@@ -28,7 +28,12 @@ enum KeychainStore {
             var add = query
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(add as CFDictionary, nil)
+            let addStatus = SecItemAdd(add as CFDictionary, nil)
+            if addStatus == errSecDuplicateItem {
+                // A racing writer created the item between our update and add;
+                // retry the update so the value isn't silently dropped.
+                _ = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+            }
         }
     }
 

@@ -400,10 +400,14 @@ actor LLMCleaner {
                                                     user: user,
                                                     maxTokens: nil)
                 let cleaned = stripCodeFences(content)
-                let trimmedLen = cleaned.trimmingCharacters(in: .whitespacesAndNewlines).count
-                // Reject implausibly short output (e.g. a long chunk answered with "OK").
-                let minLen = max(20, Int(0.3 * Double(text.count)))
-                if trimmedLen >= minLen {
+                let trimmed = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Accept only when the cleaned length is within a both-sided RELATIVE
+                // range of the input: rejects an "OK"-style truncation AND an oversized
+                // hallucinated appendix, while letting valid short cleanups through
+                // ("um I agree" -> "I agree." no longer trips an absolute-20 floor).
+                let lower = Int(0.3 * Double(text.count))
+                let upper = Int(2.0 * Double(text.count)) + 40
+                if (lower...upper).contains(trimmed.count) {
                     return cleaned
                 }
                 if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: nil) }
@@ -731,17 +735,22 @@ actor LLMCleaner {
                     let ratio = Double(cleanLen) / Double(rawLen)
                     // Lower (shrink) bound always applies.
                     if ratio < lower { return nil }
-                    // Upper (growth) bound: EXEMPT very short raw segments so that
-                    // adding punctuation to short affirmations ("好" -> "好。") passes.
-                    if ratio > upper && rawLen > 4 && (cleanLen - rawLen) > 6 { return nil }
+                    // Upper (growth) bound with BOUNDED slack, applied to ALL segments:
+                    // short ones get rawLen+6 slack, longer ones get rawLen*upper. This
+                    // stops a short raw ("OK") validating against a paragraph-length
+                    // hallucination, while still letting "好" -> "好。" pass.
+                    let maxLen = max(Int(Double(rawLen) * upper), rawLen + 6)
+                    if cleanLen > maxLen { return nil }
                 }
             }
             map[item.i] = item.t
         }
         // Batch-level mass-emptying guard: if the model emptied most of the
         // originally-non-empty segments, fail closed (-> raw fallback) instead of
-        // emitting a blank SRT. A single filler-only removal still passes.
-        if nonEmptyRawCount > 0 && Double(emptiedCount) / Double(nonEmptyRawCount) > 0.6 {
+        // emitting a blank SRT. Only applied when there are >= 4 non-empty raw
+        // segments; on smaller batches a lone filler-only segment ("um" -> "") may
+        // legitimately be emptied, so the guard is skipped.
+        if nonEmptyRawCount >= 4 && Double(emptiedCount) / Double(nonEmptyRawCount) > 0.6 {
             return nil
         }
         return map

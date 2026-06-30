@@ -88,9 +88,17 @@ enum AudioExtractor {
                             destination: rawBuffer.baseAddress!
                         )
                     }
-                    if status == kCMBlockBufferNoErr {
-                        samples.append(contentsOf: chunk)
+                    // A nonzero copy status — or a byte length that isn't a whole
+                    // number of Floats — means appending this chunk would corrupt/
+                    // truncate the stream while reader.status could still report
+                    // .completed (silent data loss). Abort the AVFoundation path so
+                    // decodeMono16k falls back to ffmpeg.
+                    if length % MemoryLayout<Float>.size != 0 || status != kCMBlockBufferNoErr {
+                        CMSampleBufferInvalidate(sampleBuffer)
+                        reader.cancelReading()
+                        throw AppError.audioDecodeFailed("CMBlockBuffer copy failed (status \(status))")
                     }
+                    samples.append(contentsOf: chunk)
                 }
             }
             CMSampleBufferInvalidate(sampleBuffer)

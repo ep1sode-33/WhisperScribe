@@ -4,12 +4,47 @@ import SwiftUI
 @MainActor
 final class SettingsStore: ObservableObject {
     @AppStorage("cleanupLevel") private var cleanupLevelRaw: Int = CleanupLevel.fixOnly.rawValue
-    @AppStorage("language") var language: String = ""
-    @AppStorage("llmBaseURL") var llmBaseURL: String = ""
-    @AppStorage("llmModel") var llmModel: String = ""
+    @AppStorage("language") private var languageRaw: String = ""
+    @AppStorage("llmBaseURL") private var llmBaseURLRaw: String = ""
+    @AppStorage("llmModel") private var llmModelRaw: String = ""
     @AppStorage("outputMode") private var outputModeRaw: Int = OutputMode.nextToSource.rawValue
-    @AppStorage("customOutputFolderPath") var customOutputFolderPath: String = ""
+    @AppStorage("customOutputFolderPath") private var customOutputFolderPathRaw: String = ""
     @AppStorage("overwritePolicy") private var overwritePolicyRaw: Int = OverwritePolicy.uniquify.rawValue
+
+    // Computed over PRIVATE @AppStorage backing so assignments publish via
+    // objectWillChange (raw @AppStorage on the ObservableObject does not), keeping
+    // @EnvironmentObject views in sync — e.g. the folder label after chooseFolder().
+    var language: String {
+        get { languageRaw }
+        set {
+            objectWillChange.send()
+            languageRaw = newValue
+        }
+    }
+
+    var llmBaseURL: String {
+        get { llmBaseURLRaw }
+        set {
+            objectWillChange.send()
+            llmBaseURLRaw = newValue
+        }
+    }
+
+    var llmModel: String {
+        get { llmModelRaw }
+        set {
+            objectWillChange.send()
+            llmModelRaw = newValue
+        }
+    }
+
+    var customOutputFolderPath: String {
+        get { customOutputFolderPathRaw }
+        set {
+            objectWillChange.send()
+            customOutputFolderPathRaw = newValue
+        }
+    }
 
     var cleanupLevel: CleanupLevel {
         get { CleanupLevel(rawValue: cleanupLevelRaw) ?? .fixOnly }

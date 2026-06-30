@@ -63,7 +63,7 @@ struct SettingsView: View {
             TextField("settings.baseURL", text: $settings.llmBaseURL)
                 .textContentType(.URL)
             TextField("settings.modelName", text: $settings.llmModel)
-            SecureField("API Key", text: $settings.apiKey)
+            SecureField("settings.apiKey", text: $settings.apiKey)
 
             HStack {
                 Button {

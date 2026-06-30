@@ -25,6 +25,9 @@ final class ModelManager: ObservableObject {
     private let fileManager: FileManager
     private let baseDir: URL
     private var tasks: [String: Task<Void, Never>] = [:]
+    /// Per-id monotonic generation. Bumped on cancel/re-download so a superseded in-flight
+    /// operation, unwinding after its `await`, can detect it is stale and skip mutating UI state.
+    private var downloadSeq: [String: Int] = [:]
 
     init(downloader: ModelDownloading,
          defaults: UserDefaults = .standard,
@@ -79,17 +82,24 @@ final class ModelManager: ObservableObject {
 
     func download(_ m: WhisperModel) {
         guard tasks[m.id] == nil else { return }
-        tasks[m.id] = Task { [weak self] in await self?.performDownload(m) }
+        let token = (downloadSeq[m.id] ?? 0) + 1
+        downloadSeq[m.id] = token
+        tasks[m.id] = Task { [weak self] in await self?.performDownload(m, token: token) }
     }
 
     func cancelDownload(_ m: WhisperModel) {
         tasks[m.id]?.cancel()
+        // Invalidate the in-flight generation so its suspended task, when it unwinds,
+        // recognises it is superseded and leaves the latest operation's state intact.
+        downloadSeq[m.id] = (downloadSeq[m.id] ?? 0) + 1
         tasks[m.id] = nil
         downloads[m.id] = .idle
     }
 
     /// The actual download flow. `internal` so tests can await it deterministically.
-    func performDownload(_ m: WhisperModel) async {
+    /// `token` pins this invocation to a generation; only the CURRENT generation may mutate
+    /// `downloads`/`tasks`/`selectedModelID`. Refreshing disk truth is never gated.
+    func performDownload(_ m: WhisperModel, token: Int) async {
         if case .downloading = downloads[m.id] { return }
         downloads[m.id] = .downloading(0)
         do {
@@ -97,18 +107,23 @@ final class ModelManager: ObservableObject {
                 Task { @MainActor in self?.updateProgress(m.id, frac) }
             }
             try Task.checkCancellation()
+            refreshInstalled()
+            guard downloadSeq[m.id, default: 0] == token else { return }
             downloads[m.id] = .idle
             tasks[m.id] = nil
-            refreshInstalled()
             // If the previously-selected model isn't usable, adopt this freshly installed one.
             if !installedIDs.contains(selectedModel.id), installedIDs.contains(m.id) {
                 selectedModelID = m.id
             }
         } catch is CancellationError {
+            // A download may have landed on disk just before cancellation threw; register it.
+            refreshInstalled()
+            guard downloadSeq[m.id, default: 0] == token else { return }
             downloads[m.id] = .idle
             tasks[m.id] = nil
         } catch {
-            downloads[m.id] = .failed(error.localizedDescription)
+            guard downloadSeq[m.id, default: 0] == token else { return }
+            downloads[m.id] = .failed(AppError.modelDownloadFailed(error.localizedDescription).localizedDescription)
             tasks[m.id] = nil
         }
     }

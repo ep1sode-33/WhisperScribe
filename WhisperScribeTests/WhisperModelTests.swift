@@ -19,4 +19,10 @@ struct WhisperModelTests {
         }
         #expect(WhisperModel.with(id: "nope") == nil)
     }
+
+    @Test func variantsArePinned() {
+        #expect(WhisperModel.with(id: "largeV3")?.variant == "openai_whisper-large-v3-v20240930")
+        #expect(WhisperModel.with(id: "largeV3Turbo")?.variant == "openai_whisper-large-v3-v20240930_turbo")
+        #expect(WhisperModel.with(id: "distilV3")?.variant == "distil-whisper_distil-large-v3")
+    }
 }

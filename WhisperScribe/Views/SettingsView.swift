@@ -4,6 +4,7 @@ import AppKit
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsStore
     @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var modelManager: ModelManager
 
     @State private var testing = false
     @State private var testResult: TestResult?
@@ -15,6 +16,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            modelSection
             transcriptionSection
             cleanupSection
             llmSection
@@ -23,6 +25,77 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 480)
         .frame(minHeight: 540)
+    }
+
+    // MARK: - 模型
+
+    private var modelSection: some View {
+        Section("settings.model") {
+            ForEach(WhisperModel.all) { model in
+                modelRow(model)
+            }
+            Text("model.storageFootnote")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func modelRow(_ model: WhisperModel) -> some View {
+        let installed = modelManager.isInstalled(model)
+        let selected = modelManager.selectedModel.id == model.id
+        HStack(spacing: 10) {
+            Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                .onTapGesture { if installed { modelManager.selectedModelID = model.id } }
+                .opacity(installed ? 1 : 0.4)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: model.name).font(.body)
+                HStack(spacing: 6) {
+                    Text(model.taglineKey)
+                    Text(verbatim: "·")
+                    Text(model.sizeKey)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            modelAccessory(model, installed: installed)
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func modelAccessory(_ model: WhisperModel, installed: Bool) -> some View {
+        switch modelManager.state(for: model) {
+        case .downloading(let f):
+            HStack(spacing: 8) {
+                ProgressView(value: f).progressViewStyle(.linear).frame(width: 90)
+                Text("\(Int(f * 100))%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Button("common.cancel") { modelManager.cancelDownload(model) }
+            }
+        case .failed(let msg):
+            HStack(spacing: 8) {
+                Label(msg, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange).lineLimit(1)
+                Button("model.retry") { modelManager.download(model) }
+            }
+        case .idle:
+            if installed {
+                HStack(spacing: 10) {
+                    Label("model.installed", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(.green)
+                    Button("model.delete", role: .destructive) { modelManager.delete(model) }
+                        .font(.caption)
+                }
+            } else {
+                Button("model.download") { modelManager.download(model) }
+            }
+        }
     }
 
     // MARK: - 转录

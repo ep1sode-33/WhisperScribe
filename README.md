@@ -22,29 +22,9 @@ polishes the text with a **bring-your-own-key** OpenAI-compatible LLM, and expor
 
 - **macOS 14** (Sonoma) or later, **Apple Silicon** (M-series).
 - **Xcode 16+** to build (developed on Xcode 26).
-- The **WhisperKit CoreML model**, cached locally (see below).
+- A **WhisperKit CoreML model** — the app downloads one for you on first run (pick it in Settings); no manual setup.
 - *(optional)* [`ffmpeg`](https://ffmpeg.org) on `PATH` at `/opt/homebrew/bin/ffmpeg` — only used as a fallback for containers AVFoundation can't open.
 - *(optional)* a BYOK OpenAI-compatible chat endpoint for the cleanup feature.
-
-## Model setup
-
-The app loads a pre-downloaded WhisperKit model from:
-
-```
-~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930/
-```
-
-If it's missing the app shows a clear error. To fetch it (≈1.5 GB):
-
-```bash
-# with huggingface-cli (pip install -U "huggingface_hub[cli]")
-huggingface-cli download argmaxinc/whisperkit-coreml \
-  --include "openai_whisper-large-v3-v20240930/*" \
-  --local-dir ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml
-```
-
-> Want a different model (e.g. `large-v3-turbo` for speed)? Change `modelFolder` in
-> `WhisperScribe/Services/TranscriberService.swift`.
 
 ## Build & run
 
@@ -66,8 +46,9 @@ account needed to run it on your own Mac. For a distributable `.app`, use
 ## Usage
 
 1. Drag a media file onto the window (or click **Choose File…**).
-2. *(optional)* Open **Settings** (⌘,) to set the cleanup level, language, output
-   location, and your BYOK LLM endpoint (then **Test Connection**).
+2. **First run:** open **Settings** (⌘,) → **Model**, pick one (large-v3, large-v3-turbo,
+   or distil-large-v3) and it downloads itself with a progress bar. Also here: cleanup
+   level, language, output location, and your BYOK LLM endpoint (then **Test Connection**).
 3. Watch it transcribe → clean → export. Outputs land next to the source by default.
 
 ### Cleanup levels

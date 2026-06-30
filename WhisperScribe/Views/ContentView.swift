@@ -5,8 +5,9 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @EnvironmentObject var viewModel: TranscriptionViewModel
     @EnvironmentObject var settings: SettingsStore
+    @EnvironmentObject var modelManager: ModelManager
 
-    private var showDropZone: Bool {
+    private var isIdle: Bool {
         if case .idle = viewModel.state { return true }
         return false
     }
@@ -18,11 +19,15 @@ struct ContentView: View {
             Divider()
 
             Group {
-                if showDropZone {
-                    DropZone { url in
-                        viewModel.start(url: url)
+                if isIdle {
+                    if modelManager.isReady {
+                        DropZone { url in
+                            viewModel.start(url: url)
+                        }
+                        .padding(20)
+                    } else {
+                        noModelView
                     }
-                    .padding(20)
                 } else {
                     StatusView()
                 }
@@ -62,6 +67,22 @@ struct ContentView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    private var noModelView: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "arrow.down.circle.dotted")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+            Text("content.noModel.title")
+                .font(.headline)
+            SettingsLink {
+                Label("content.noModel.openSettings", systemImage: "gearshape")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: 420, maxHeight: .infinity)
+        .padding(24)
     }
 
     private func chooseFile() {

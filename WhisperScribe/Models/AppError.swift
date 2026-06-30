@@ -2,7 +2,8 @@ import Foundation
 
 enum AppError: LocalizedError, Equatable {
     case noAudioTrack
-    case modelMissing(path: String)
+    case modelNotInstalled
+    case modelDownloadFailed(String)
     case audioDecodeFailed(String)
     case transcriptionFailed(String)
     case writeFailed(String)
@@ -12,8 +13,10 @@ enum AppError: LocalizedError, Equatable {
         switch self {
         case .noAudioTrack:
             return String(localized: "error.noAudioTrack")
-        case .modelMissing(let path):
-            return String.localizedStringWithFormat(NSLocalizedString("error.modelMissing", comment: ""), path)
+        case .modelNotInstalled:
+            return String(localized: "error.modelNotInstalled")
+        case .modelDownloadFailed(let m):
+            return String.localizedStringWithFormat(NSLocalizedString("error.modelDownloadFailed", comment: ""), m)
         case .audioDecodeFailed(let m):
             return String.localizedStringWithFormat(NSLocalizedString("error.audioDecodeFailed", comment: ""), m)
         case .transcriptionFailed(let m):

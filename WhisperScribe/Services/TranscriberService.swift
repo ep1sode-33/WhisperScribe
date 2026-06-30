@@ -6,21 +6,22 @@ import WhisperKit
 actor TranscriberService {
 
     private var pipe: WhisperKit?
-
-    private let modelFolder: String = {
-        ("~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930" as NSString)
-            .expandingTildeInPath
-    }()
+    private var loadedFolder: String?
 
     init() {}
 
-    /// Idempotently load the WhisperKit pipeline.
-    func prepare() async throws {
-        if pipe != nil { return }
+    /// Idempotently load the WhisperKit pipeline for `modelFolder`. Reloads if the folder
+    /// changed since the last load (so switching models in Settings takes effect next job).
+    func prepare(modelFolder: String) async throws {
+        if pipe != nil, loadedFolder == modelFolder { return }
 
         guard FileManager.default.fileExists(atPath: modelFolder) else {
-            throw AppError.modelMissing(path: modelFolder)
+            throw AppError.modelNotInstalled
         }
+
+        // Drop any previously-loaded pipeline before loading a different folder.
+        pipe = nil
+        loadedFolder = nil
 
         let compute = ModelComputeOptions(
             melCompute: .cpuAndGPU,
@@ -40,6 +41,7 @@ actor TranscriberService {
 
         do {
             pipe = try await WhisperKit(config)
+            loadedFolder = modelFolder
         } catch {
             throw AppError.transcriptionFailed(String(describing: error))
         }
@@ -51,9 +53,8 @@ actor TranscriberService {
         language: String?,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> [TimedSegment] {
-        try await prepare()
         guard let pipe else {
-            throw AppError.transcriptionFailed(String(localized: "error.whisperKitNotInitialized"))
+            throw AppError.modelNotInstalled
         }
 
         if Task.isCancelled { throw CancellationError() }

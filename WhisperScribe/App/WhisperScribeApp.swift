@@ -10,6 +10,7 @@ struct WhisperScribeApp: App {
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
                 .environmentObject(appModel.viewModel)
+                .environmentObject(appModel.modelManager)
                 .frame(minWidth: 560, minHeight: 420)
         }
         .windowResizability(.contentMinSize)
@@ -18,6 +19,7 @@ struct WhisperScribeApp: App {
             SettingsView()
                 .environmentObject(appModel.settings)
                 .environmentObject(appModel)
+                .environmentObject(appModel.modelManager)
         }
     }
 }

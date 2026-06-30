@@ -8,6 +8,7 @@ final class TranscriptionViewModel: ObservableObject {
     private let settings: SettingsStore
     private let transcriber: TranscriberService
     private let cleaner: LLMCleaner
+    private let modelManager: ModelManager
 
     private var task: Task<Void, Never>?
     private var lastOutputs: (srt: URL, txt: URL)?
@@ -16,10 +17,11 @@ final class TranscriptionViewModel: ObservableObject {
     private var lastTranscribeFraction = 0.0
     private var lastCleanFraction = 0.0
 
-    init(settings: SettingsStore, transcriber: TranscriberService, cleaner: LLMCleaner) {
+    init(settings: SettingsStore, transcriber: TranscriberService, cleaner: LLMCleaner, modelManager: ModelManager) {
         self.settings = settings
         self.transcriber = transcriber
         self.cleaner = cleaner
+        self.modelManager = modelManager
     }
 
     func start(url: URL) {
@@ -35,8 +37,10 @@ final class TranscriptionViewModel: ObservableObject {
         task = Task { [weak self] in
             guard let self else { return }
             do {
-                // 1. Load model
-                try await self.transcriber.prepare()
+                // 1. Load model (resolve the selected model's folder; gate on readiness)
+                let model = self.modelManager.selectedModel
+                guard self.modelManager.isReady else { throw AppError.modelNotInstalled }
+                try await self.transcriber.prepare(modelFolder: self.modelManager.modelFolderPath(model))
                 try Task.checkCancellation()
 
                 // 2. Extract audio

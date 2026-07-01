@@ -104,7 +104,7 @@ final class ModelManager: ObservableObject {
         downloads[m.id] = .downloading(0)
         do {
             _ = try await downloader.download(variant: m.variant) { [weak self] frac in
-                Task { @MainActor in self?.updateProgress(m.id, frac) }
+                Task { @MainActor in self?.updateProgress(m.id, token: token, frac) }
             }
             try Task.checkCancellation()
             refreshInstalled()
@@ -128,7 +128,10 @@ final class ModelManager: ObservableObject {
         }
     }
 
-    private func updateProgress(_ id: String, _ raw: Double) {
+    func updateProgress(_ id: String, token: Int, _ raw: Double) {
+        // Stale callbacks from a superseded (cancelled + re-issued) generation must not write the
+        // NEW task's fraction, even if the id is again `.downloading`.
+        guard downloadSeq[id, default: 0] == token else { return }
         // Late callbacks after completion/cancel see a non-downloading state → ignored.
         guard case .downloading(let current) = downloads[id] else { return }
         downloads[id] = .downloading(Self.clampedProgress(current: current, raw: raw))
@@ -146,7 +149,7 @@ final class ModelManager: ObservableObject {
         try? fileManager.removeItem(at: modelFolder(m))
         refreshInstalled()
         if selectedModel.id == m.id, !installedIDs.contains(m.id) {
-            selectedModelID = installedIDs.sorted().first ?? WhisperModel.default.id
+            selectedModelID = WhisperModel.all.first(where: { installedIDs.contains($0.id) })?.id ?? WhisperModel.default.id
         }
     }
 }

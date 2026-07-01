@@ -196,4 +196,37 @@ struct ModelManagerTests {
         #expect(m.selectedModel.id == "distilV3")
         #expect(m.isReady)
     }
+
+    /// Fix 4: a STALE progress callback (from a superseded generation) must not overwrite the
+    /// CURRENT generation's `.downloading` fraction — even though the id is still `.downloading`.
+    ///
+    /// Deterministic: `SuspendingDownloader` never fires progress itself, so the only writers of
+    /// `downloads[id]` are the task's `.downloading(0)` set and our two explicit `updateProgress`
+    /// calls. `download(model)` is the FIRST download of this id, so `token = (0)+1 = 1` is the
+    /// current generation. A token-0 call (stale) must be dropped by the `downloadSeq` guard; a
+    /// token-1 call (current) must be applied. Finally we resume the gate so the parked task
+    /// completes normally (no cancellation, no leaked continuation) and settles back to `.idle`.
+    @Test @MainActor func staleProgressIsIgnored() async throws {
+        let base = try tempDir()
+        let gate = Gate()
+        let m = makeManager(SuspendingDownloader(baseDir: base, gate: gate), baseDir: base)
+        let model = WhisperModel.with(id: "distilV3")!
+
+        // Start X → the task sets .downloading(0), downloadSeq[id] == 1, then parks on the gate.
+        m.download(model)
+        await yieldUntil { gate.waiterCount == 1 }
+        #expect(m.state(for: model) == .downloading(0))
+
+        // Stale token (0) → guard drops it; fraction unchanged.
+        m.updateProgress(model.id, token: 0, 0.9)
+        #expect(m.state(for: model) == .downloading(0))
+
+        // Current token (1) → applied.
+        m.updateProgress(model.id, token: 1, 0.5)
+        #expect(m.state(for: model) == .downloading(0.5))
+
+        // Clean up: resume the parked task so it finishes and no continuation leaks.
+        gate.resumeNext()
+        await yieldUntil { m.state(for: model) == .idle }
+    }
 }

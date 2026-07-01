@@ -54,9 +54,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: model.name).font(.body)
                 HStack(spacing: 6) {
-                    Text(model.taglineKey)
+                    Text(LocalizedStringKey(model.taglineKey))
                     Text(verbatim: "·")
-                    Text(model.sizeKey)
+                    Text(LocalizedStringKey(model.sizeKey))
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

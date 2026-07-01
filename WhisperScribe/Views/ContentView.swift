@@ -41,7 +41,7 @@ struct ContentView: View {
                 } label: {
                     Label("common.chooseFile", systemImage: "doc.badge.plus")
                 }
-                .disabled(viewModel.state.isBusy)
+                .disabled(viewModel.state.isBusy || !modelManager.isReady)
             }
             ToolbarItem(placement: .automatic) {
                 SettingsLink {

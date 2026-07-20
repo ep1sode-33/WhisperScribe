@@ -25,4 +25,8 @@ DerivedData/
 Packages/
 *.xcodeproj/*.xcworkspace/xcuserdata/
 
+# CI-equivalent local runs (xcodebuild -clonedSourcePackagesDirPath / dmg staging)
+.spm/
+dist/
+
 # Keep these (do NOT ignore): project.pbxproj, shared scheme, Package.resolved.

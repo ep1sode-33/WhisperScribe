@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re-)release, e.g. v1.2.3'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Test, build, package, publish
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not v<major>.<minor>.<patch>[-suffix]"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Swift packages
+        uses: actions/cache@v6
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: Test gate
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project WhisperScribe.xcodeproj \
+            -scheme WhisperScribe \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            -clonedSourcePackagesDirPath .spm \
+            -skipPackagePluginValidation \
+            -skipMacroValidation
+
+      - name: Build Release
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project WhisperScribe.xcodeproj \
+            -scheme WhisperScribe \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath build \
+            -clonedSourcePackagesDirPath .spm \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+      - name: Verify code signature (ad-hoc)
+        run: |
+          codesign --verify --deep --strict --verbose=2 \
+            "build/Build/Products/Release/WhisperScribe.app"
+
+      - name: Package DMG
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p dist/dmg
+          cp -R "build/Build/Products/Release/WhisperScribe.app" dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create \
+            -volname "WhisperScribe $VERSION" \
+            -srcfolder dist/dmg \
+            -ov -format UDZO \
+            "dist/WhisperScribe-$VERSION.dmg"
+          (cd dist && shasum -a 256 "WhisperScribe-$VERSION.dmg" > checksums.txt)
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "dist/WhisperScribe-$VERSION.dmg" \
+            "dist/checksums.txt" \
+            --title "WhisperScribe $VERSION" \
+            --verify-tag \
+            --generate-notes
+
+# ── Developer ID signing + notarization (currently disabled) ──────────────
+# 想改成正式签名+公证发布时：
+#   1. 配置 repo Secrets:
+#        MACOS_CERT_P12_BASE64   Developer ID Application 证书 .p12 的 base64
+#        MACOS_CERT_PASSWORD     .p12 密码
+#        APPLE_TEAM_ID           团队 ID
+#        NOTARY_KEY_ID / NOTARY_ISSUER_ID / NOTARY_KEY_BASE64
+#                                App Store Connect API key (.p8)
+#   2. 在 "Package DMG" 之前插入步骤：导入证书到临时 keychain 并重签：
+#        security create-keychain -p ci build.keychain
+#        security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" \
+#          -T /usr/bin/codesign
+#        security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+#        codesign --force --deep --options runtime \
+#          --sign "Developer ID Application: <name> ($APPLE_TEAM_ID)" \
+#          build/Build/Products/Release/WhisperScribe.app
+#   3. 在 "Package DMG" 之后、"Create GitHub Release" 之前插入公证：
+#        echo "$NOTARY_KEY_BASE64" | base64 -d > key.p8
+#        xcrun notarytool submit "dist/WhisperScribe-$VERSION.dmg" \
+#          --key key.p8 --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+#        xcrun stapler staple "dist/WhisperScribe-$VERSION.dmg"
+#   4. README 的 Install 一节删掉 xattr 说明。

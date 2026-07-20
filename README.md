@@ -1,5 +1,7 @@
 # WhisperScribe
 
+[![CI](https://github.com/ep1sode-33/WhisperScribe/actions/workflows/ci.yml/badge.svg)](https://github.com/ep1sode-33/WhisperScribe/actions/workflows/ci.yml)
+
 A native macOS app that turns any audio/video file into clean subtitles. Drop a file
 in, it transcribes **locally on the Apple Neural Engine** with WhisperKit, optionally
 polishes the text with a **bring-your-own-key** OpenAI-compatible LLM, and exports
@@ -17,6 +19,21 @@ polishes the text with a **bring-your-own-key** OpenAI-compatible LLM, and expor
 - 📝 **SRT + TXT** output next to the source file (or a folder you choose).
 - 🌐 **5 languages** — English, 简体中文, 繁體中文, 日本語, 한국어.
 - 📊 **Honest progress** — a determinate bar for transcription (bound to WhisperKit's own progress) and a live "characters generated" counter during streaming LLM cleanup.
+
+## Install
+
+Download the latest `WhisperScribe-<version>.dmg` from
+[Releases](https://github.com/ep1sode-33/WhisperScribe/releases), open it and drag
+**WhisperScribe** into **Applications**.
+
+The app is **ad-hoc signed** (not notarized), so on first launch Gatekeeper will
+claim it is "damaged". Clear the quarantine flag once and it opens normally:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/WhisperScribe.app
+```
+
+Prefer building from source? See [Build & run](#build--run).
 
 ## Requirements
 
@@ -40,8 +57,9 @@ xcodebuild -project WhisperScribe.xcodeproj -scheme WhisperScribe \
 ```
 
 The app is unsandboxed and ad-hoc signed ("Sign to Run Locally") — no developer
-account needed to run it on your own Mac. For a distributable `.app`, use
-**Product ▸ Archive**.
+account needed to run it on your own Mac. Distributable `.dmg`s are built
+automatically by [the release workflow](.github/workflows/release.yml) when a
+`v*` tag is pushed; for a one-off local build use **Product ▸ Archive**.
 
 ## Usage
 

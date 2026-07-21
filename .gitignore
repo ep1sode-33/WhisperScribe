@@ -28,5 +28,9 @@ Packages/
 # CI-equivalent local runs (xcodebuild -clonedSourcePackagesDirPath / dmg staging)
 .spm/
 dist/
+DeepSeekOCR2Kit/Fixtures/
+DeepSeekOCR2Kit/.venv/
+DeepSeekOCR2Kit/.build/
+.superpowers/
 
 # Keep these (do NOT ignore): project.pbxproj, shared scheme, Package.resolved.

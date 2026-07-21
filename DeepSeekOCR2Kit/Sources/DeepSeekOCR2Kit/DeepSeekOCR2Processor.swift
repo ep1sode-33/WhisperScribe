@@ -59,10 +59,11 @@ public final class DeepSeekOCR2Processor: Sendable {
 
     private let imageTokenID: Int
     private let bosTokenID: Int
+    private let eosTokenID: Int
     private let tokenizer: any Tokenizers.Tokenizer
 
     /// Loads the tokenizer from `modelDir/tokenizer.json` and reads
-    /// `bos`/`image` token ids from `config.json`. `strict: false` so the
+    /// `bos`/`eos`/`image` token ids from `config.json`. `strict: false` so the
     /// checkpoint's byte-level BPE `tokenizer.json` (custom Split pre-tokenizer)
     /// loads verbatim -- see Task 2's note on the Llama-fast decoder-glue trap.
     public init(modelDir: URL) async throws {
@@ -71,6 +72,7 @@ public final class DeepSeekOCR2Processor: Sendable {
             mergingJSON: Data(contentsOf: modelDir.appending(path: "config.json")))
         self.imageTokenID = cfg.imageTokenID
         self.bosTokenID = cfg.bosTokenID
+        self.eosTokenID = cfg.eosTokenID
     }
 
     /// `CGImage` + prompt -> model-ready inputs. `prompt` must contain exactly
@@ -108,6 +110,25 @@ public final class DeepSeekOCR2Processor: Sendable {
     /// reference text was produced (`skip_special_tokens=True`).
     public func decode(_ ids: [Int]) -> String {
         tokenizer.decode(tokens: ids, skipSpecialTokens: true)
+    }
+
+    /// Decode with explicit control over whether special-token surface forms are
+    /// kept. `skipSpecialTokens: false` preserves the grounding markers
+    /// (`<|ref|>`/`<|det|>`/…, all `special:true` in tokenizer.json). Used by
+    /// `OCR2Session`'s streaming detokenizer so free-OCR and grounding share one
+    /// decode path with a per-task flag.
+    public func decode(_ ids: [Int], skipSpecialTokens: Bool) -> String {
+        tokenizer.decode(tokens: ids, skipSpecialTokens: skipSpecialTokens)
+    }
+
+    /// Marker-preserving decode for grounding output (Task 9 review finding):
+    /// the `<|ref|>/<|/ref|>/<|det|>/<|/det|>` markers are `special:true`, so the
+    /// plain `decode(_:)` (skip specials) STRIPS them. This mirrors the Python
+    /// reference's grounding decode (`skip_special_tokens=False`) which keeps the
+    /// markers and drops only the sentinel BOS(0)/EOS(1) ids manually.
+    public func decodeKeepingMarkers(_ ids: [Int]) -> String {
+        let filtered = ids.filter { $0 != bosTokenID && $0 != eosTokenID }
+        return tokenizer.decode(tokens: filtered, skipSpecialTokens: false)
     }
 
     // MARK: - Tokenization

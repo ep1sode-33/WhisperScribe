@@ -168,7 +168,13 @@ public final class DeepSeekOCR2Model: Module {
             }
         }
 
-        // Then the global view(s).
+        // Then the single global view. Exactly one is supported: the view
+        // separator below is appended once, so a V>1 batch would desync the
+        // feature/separator layout relative to the image-token positions.
+        precondition(
+            pixelsGlobal.dim(0) == 1,
+            "expected exactly one global view, got \(pixelsGlobal.dim(0))"
+        )
         for v in 0..<pixelsGlobal.dim(0) {
             allFeatures.append(viewFeatures(pixelsGlobal[v ..< (v + 1)]))  // (256, 1280)
         }
@@ -182,18 +188,27 @@ public final class DeepSeekOCR2Model: Module {
         // Scatter into the image-token positions. The positions need NOT be a
         // contiguous block, so they are gathered explicitly from the mask and
         // assigned by advanced indexing (MLX Swift has no boolean
-        // scatter-assign) -- same approach as mlx-swift-lm's
-        // `QwenVL.mergeInputIdsWithImageFeatures`.
+        // scatter-assign). Only this index-gather+assign *shape* mirrors
+        // mlx-swift-lm's `QwenVL.mergeInputIdsWithImageFeatures`; the
+        // token/feature count contract is the Python reference's, which
+        // truncates-or-pads the features to the image-token count
+        // (deepseekocr_2.py:168-176). We instead require an exact match and
+        // fail loudly -- a mismatch here means an upstream processor bug, not
+        // something to silently paper over.
         let maskRow = seqMask[0].asArray(Bool.self)
         var imageIndices: [Int] = []
         imageIndices.reserveCapacity(maskRow.count)
         for (i, on) in maskRow.enumerated() where on { imageIndices.append(i) }
 
         guard !imageIndices.isEmpty else { return inputEmbeds }
-        let n = min(imageIndices.count, visionFeatures.dim(0))
+        precondition(
+            imageIndices.count == visionFeatures.dim(0),
+            "image-token count (\(imageIndices.count)) must equal "
+                + "vision-feature count (\(visionFeatures.dim(0)))"
+        )
         let result = inputEmbeds
-        result[0..., MLXArray(Array(imageIndices.prefix(n))), 0...] =
-            visionFeatures[0..<n][.newAxis, 0..., 0...]
+        result[0..., MLXArray(imageIndices), 0...] =
+            visionFeatures[.newAxis, 0..., 0...]
         return result
     }
 

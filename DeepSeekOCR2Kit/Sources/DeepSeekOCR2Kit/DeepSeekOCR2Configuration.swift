@@ -15,7 +15,7 @@ import Foundation
 /// a real `config.json`; everything else keeps its hardcoded default.
 public struct DeepSeekOCR2Configuration: Codable, Sendable {
     public struct SAMConfig: Codable, Sendable {
-        public var layers = 12, width = 768, windowSize = 14
+        public var layers = 12, width = 768, windowSize = 14, heads = 12
         public var globalAttnIndexes = [2, 5, 8, 11]
         public var outputChannels = 896          // v2: net_3 出 896(v1 为 1024)
         public var patchSize = 16, imageSizeGlobal = 1024, imageSizeTile = 768
@@ -75,6 +75,7 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
                     var layers: Int?
                     var width: Int?
                     var global_attn_indexes: [Int]?
+                    var heads: Int?
                 }
                 struct Qwen2Width: Decodable {
                     var dim: Int?
@@ -131,6 +132,7 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
                 if let v = samWidth.layers { sam.layers = v }
                 if let v = samWidth.width { sam.width = v }
                 if let v = samWidth.global_attn_indexes { sam.globalAttnIndexes = v }
+                if let v = samWidth.heads { sam.heads = v }
             }
             if let v = width.qwen2?.dim { qwen2Encoder.dim = v }
         }

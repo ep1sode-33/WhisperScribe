@@ -15,6 +15,7 @@ import Foundation
         #expect(c.text.intermediate == 6848 && c.text.moeIntermediate == 896)
         #expect(c.text.numExperts == 64 && c.text.topK == 6 && c.text.sharedExperts == 2)
         #expect(c.text.firstKDenseReplace == 0 && c.text.vocabSize == 102_400)
+        #expect(c.text.kvHeads == 32)
         #expect(c.bosTokenID == 0 && c.eosTokenID == 1 && c.imageTokenID == 128_815)
     }
     @Test func decodesRealConfigJSON() throws {
@@ -22,6 +23,8 @@ import Foundation
         let data = try Data(contentsOf: model.appending(path: "config.json"))
         let c = try DeepSeekOCR2Configuration(mergingJSON: data)
         #expect(c.text.vocabSize == 129_280)
+        #expect(c.text.layers == 12 && c.text.heads == 10 && c.text.kvHeads == 10)
+        #expect(c.text.firstKDenseReplace == 1)
         #expect(c.modelType == "deepseekocr_2")
         #expect(c.projectorInput == 896)
     }

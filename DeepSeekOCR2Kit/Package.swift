@@ -10,7 +10,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.3"),
-        .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.31.4"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
     ],
     targets: [
@@ -20,11 +19,6 @@ let package = Package(
                 .product(name: "MLXVLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
-                // MLXVLM/MLXLMCommon don't themselves depend on MLXFast, so
-                // it needs an explicit dependency here for SAMEncoder's
-                // `MLXFast.scaledDotProductAttention` (used for SAM's
-                // decomposed-relative-position attention bias).
-                .product(name: "MLXFast", package: "mlx-swift"),
             ]),
         .executableTarget(
             name: "ocr2-cli",

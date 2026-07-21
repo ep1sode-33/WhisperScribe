@@ -33,7 +33,6 @@
 import Foundation
 import MLX
 import MLXNN
-import MLXFast
 import MLXLMCommon
 
 // MARK: - MLP block (sam.py: MLPBlock)

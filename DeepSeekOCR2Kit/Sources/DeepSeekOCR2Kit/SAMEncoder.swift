@@ -379,8 +379,9 @@ final class SAMPatchEmbed: Module {
 ///
 /// Hyperparameters not present in `SAMConfig` / the real `config.json` (SAM's
 /// `vision_config.width.sam_vit_b` section is only partially consulted by
-/// the checked-in `DeepSeekOCR2Configuration.SAMConfig` merge -- see that
-/// type's doc comment) are hardcoded below, transcribed from `sam.py
+/// the checked-in `DeepSeekOCR2Configuration.SAMConfig` merge -- see
+/// `DeepSeekOCR2Configuration`'s own doc comment) are hardcoded below,
+/// transcribed from `sam.py
 /// SAMEncoder.__init__`'s own defaults, none of which
 /// `deepseekocr_2.py:Model.__init__`'s `SAMEncoder(...)` call overrides
 /// except `final_out_chans` (-> `config.outputChannels`).

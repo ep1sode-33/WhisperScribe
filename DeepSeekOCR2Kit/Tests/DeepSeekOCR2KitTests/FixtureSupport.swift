@@ -75,4 +75,45 @@ enum TestWeights {
         let parameters = ModuleParameters.unflattened(stripped)
         try module.update(parameters: parameters, verify: .noUnusedKeys)
     }
+
+    /// Quantization-aware variant for `language_model.*` (Task 7): unlike the
+    /// `sam_model.*`/`vision_model.*` subtrees `load(into:prefix:)` targets,
+    /// the language model's `Linear`/`Embedding`/`SwitchLinear` leaves ship
+    /// with `.scales`/`.biases` companions -- 8-bit affine, group_size 64,
+    /// per the real checkpoint's `config.json` `quantization` section (see
+    /// `MoELanguageModel.swift`'s file header for the exact key inventory).
+    /// A plain `update(parameters:)` would either throw (unconsumed `.scales`
+    /// / `.biases` keys, since a stock `Linear` has no such parameters) or,
+    /// worse, silently fail to raise if `verify` were relaxed.
+    ///
+    /// This mirrors mlx-swift-lm's own loader
+    /// (`Libraries/MLXLMCommon/Load.swift: loadWeights`): sanitize the raw
+    /// weights, then `MLXNN.quantize(model:groupSize:bits:mode:filter:)` to
+    /// swap every leaf module that has a `.scales` companion in the loaded
+    /// weights (and only those) for its quantized counterpart, and only then
+    /// `update(parameters:)` with the full (now shape-matching) weight set.
+    static func loadQuantized(
+        into module: Module, prefix: String,
+        groupSize: Int = 64, bits: Int = 8, mode: QuantizationMode = .affine
+    ) throws {
+        let raw = try FixtureSupport.loadAllShards()
+        guard let modelDir = FixtureSupport.modelDir else {
+            throw NSError(domain: "fixtures-missing", code: 1)
+        }
+        let config = try DeepSeekOCR2Configuration(
+            mergingJSON: Data(contentsOf: modelDir.appending(path: "config.json")))
+        let sanitized = WeightSanitizer.sanitize(raw, config: config)
+
+        var stripped: [String: MLXArray] = [:]
+        for (key, value) in sanitized where key.hasPrefix(prefix) {
+            stripped[String(key.dropFirst(prefix.count))] = value
+        }
+
+        quantize(model: module, groupSize: groupSize, bits: bits, mode: mode) { path, _ in
+            stripped["\(path).scales"] != nil
+        }
+
+        let parameters = ModuleParameters.unflattened(stripped)
+        try module.update(parameters: parameters, verify: .noUnusedKeys)
+    }
 }

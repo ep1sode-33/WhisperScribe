@@ -40,6 +40,10 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
         public var firstKDenseReplace = 0, vocabSize = 102_400
         public var qkNopeHeadDim = 0            // ==0 → 非 MLA(LlamaAttention 路径)
         public var nGroup = 1, topkGroup = 1    // 加载时断言,防未实现的 group routing
+        // Python dataclass default is 32 (== heads' own default); real
+        // config.json overrides both to 10 via `num_key_value_heads`, i.e.
+        // this checkpoint is plain MHA (kvHeads == heads), not GQA.
+        public var kvHeads = 32
         public var rmsNormEps: Double = 1e-6
         public var ropeTheta: Double = 10_000
     }
@@ -58,6 +62,7 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
             var hidden_size: Int?
             var num_hidden_layers: Int?
             var num_attention_heads: Int?
+            var num_key_value_heads: Int?
             var intermediate_size: Int?
             var moe_intermediate_size: Int?
             var n_routed_experts: Int?
@@ -115,6 +120,7 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
             if let v = lc.hidden_size { text.hiddenSize = v }
             if let v = lc.num_hidden_layers { text.layers = v }
             if let v = lc.num_attention_heads { text.heads = v }
+            if let v = lc.num_key_value_heads { text.kvHeads = v }
             if let v = lc.intermediate_size { text.intermediate = v }
             if let v = lc.moe_intermediate_size { text.moeIntermediate = v }
             if let v = lc.n_routed_experts { text.numExperts = v }

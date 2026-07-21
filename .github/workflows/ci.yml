@@ -40,3 +40,19 @@ jobs:
             -clonedSourcePackagesDirPath .spm \
             -skipPackagePluginValidation \
             -skipMacroValidation
+
+      # DeepSeekOCR2Kit is a SwiftPM package; its MLX/Metal-backed tests must run
+      # under xcodebuild (the SwiftPM CLI `swift test` cannot load the MLX Metal
+      # shader library). The parity tests are fixture-gated (`.enabled(if:
+      # FixtureSupport.root != nil)`) and skip cleanly when Fixtures/ and the
+      # model snapshot are absent, so CI runs only the pure-logic tests
+      # (mask/grounding-parser/config/sanitizer/prompt-template).
+      - name: Kit tests (DeepSeekOCR2Kit)
+        run: |
+          set -o pipefail
+          cd DeepSeekOCR2Kit && xcodebuild test \
+            -scheme DeepSeekOCR2Kit-Package \
+            -destination 'platform=macOS' \
+            -clonedSourcePackagesDirPath ../.spm \
+            -skipPackagePluginValidation \
+            -skipMacroValidation 2>&1 | tail -20

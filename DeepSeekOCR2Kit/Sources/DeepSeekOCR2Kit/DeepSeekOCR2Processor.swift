@@ -2,6 +2,8 @@
 // (dynamicPreprocess / findClosestAspectRatio / pad geometry); parameters and
 // resampling rewritten to match mlx-vlm's DeepSeek-OCR-2 reference
 // (processing_deepseekocr.py) bit-for-bit.
+// Source: https://github.com/mzbac/deepseek-ocr.swift
+//         Sources/DeepSeekOCR/ImageProcessor.swift
 
 import CoreGraphics
 import Foundation

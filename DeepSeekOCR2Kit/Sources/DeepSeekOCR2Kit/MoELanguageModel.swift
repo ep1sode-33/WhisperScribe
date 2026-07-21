@@ -1,4 +1,6 @@
 // Adapted from mzbac/deepseek-ocr.swift (MIT)
+// Source: https://github.com/mzbac/deepseek-ocr.swift
+//         Sources/DeepSeekOCR/LanguageModel.swift
 //
 // DeepSeek-V2-style MoE decoder (12 layers, layer 0 dense / layers 1-11
 // routed-MoE + 2 shared experts, plain MHA -- `qk_nope_head_dim == 0` means

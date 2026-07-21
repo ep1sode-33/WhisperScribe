@@ -23,6 +23,8 @@ import MLX
     func remapsAllCheckpointKeys() throws {
         let raw = try loadAllShards()
         let out = WeightSanitizer.sanitize(raw, config: try Self.realConfig())
+        // On this pre-sanitized checkpoint, sanitize is an identity on key names, so set equality guards against future edits dropping or colliding keys.
+        #expect(Set(out.keys) == Set(raw.keys))
         // 1) 不残留 checkpoint 前缀
         #expect(!out.keys.contains { $0.hasPrefix("model.") })
         // 2) 关键目标键存在

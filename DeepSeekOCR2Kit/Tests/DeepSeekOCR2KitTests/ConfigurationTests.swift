@@ -7,6 +7,7 @@ import Foundation
         let c = DeepSeekOCR2Configuration.default
         #expect(c.sam.layers == 12 && c.sam.width == 768 && c.sam.windowSize == 14)
         #expect(c.sam.globalAttnIndexes == [2, 5, 8, 11] && c.sam.outputChannels == 896)
+        #expect(c.sam.heads == 12)
         #expect(c.qwen2Encoder.layers == 24 && c.qwen2Encoder.dim == 896)
         #expect(c.qwen2Encoder.heads == 14 && c.qwen2Encoder.kvHeads == 2)
         #expect(c.qwen2Encoder.intermediate == 4864 && c.qwen2Encoder.ropeTheta == 1_000_000)

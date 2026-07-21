@@ -127,20 +127,10 @@ import MLX
     }
 
     /// Loads every tensor from the checkpoint's `model.safetensors.index.json`
-    /// shard set (this checkpoint happens to have exactly one shard, but the
-    /// helper handles the general multi-shard case).
+    /// shard set. Delegates to `FixtureSupport.loadAllShards()` (shared with
+    /// `TestWeights`, used by Task 5+ component parity tests) so the
+    /// shard-reading logic lives in exactly one place.
     func loadAllShards() throws -> [String: MLXArray] {
-        let dir = try #require(FixtureSupport.modelDir)
-        let indexData = try Data(contentsOf: dir.appending(path: "model.safetensors.index.json"))
-        let index = try JSONSerialization.jsonObject(with: indexData) as! [String: Any]
-        let weightMap = index["weight_map"] as! [String: String]
-        let shardNames = Set(weightMap.values)
-
-        var merged: [String: MLXArray] = [:]
-        for shard in shardNames {
-            let shardWeights = try MLX.loadArrays(url: dir.appending(path: shard))
-            merged.merge(shardWeights) { _, new in new }
-        }
-        return merged
+        try FixtureSupport.loadAllShards()
     }
 }

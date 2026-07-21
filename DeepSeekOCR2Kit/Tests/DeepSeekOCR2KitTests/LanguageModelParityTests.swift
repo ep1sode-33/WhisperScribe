@@ -53,16 +53,11 @@ import MLX
         let lm = MoELanguageModel(config.text)
         try TestWeights.loadQuantized(into: lm, prefix: "language_model.")
 
-        let cache = lm.newCache()
-        var logits = lm(inputEmbeds: embeds.asType(.bfloat16), cache: cache)
-        var ids: [Int] = []
-        for _ in 0..<min(100, refIDs.shape[0]) {
-            let next = MLX.argMax(logits[0..., -1, 0...], axis: -1)
-            let nextID = next.item(Int.self)
-            ids.append(nextID)
-            if nextID == config.eosTokenID { break }
-            logits = lm(inputEmbeds: lm.embed(next.reshaped(1, 1)), cache: cache)
-        }
+        // Shared greedy loop (extracted to FixtureSupport, also used by
+        // EndToEndParityTests).
+        let ids = FixtureSupport.greedyDecode(
+            model: lm, embeds: embeds, steps: min(100, refIDs.shape[0]),
+            eos: config.eosTokenID)
 
         let ref = (0..<ids.count).map { refIDs[$0].item(Int32.self) }
         let gotAsRef = ids.map { Int32($0) }

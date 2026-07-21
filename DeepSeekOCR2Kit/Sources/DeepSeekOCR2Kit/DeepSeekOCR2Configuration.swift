@@ -47,11 +47,30 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
         public var rmsNormEps: Double = 1e-6
         public var ropeTheta: Double = 10_000
     }
+    /// Affine-quantization parameters for the checkpoint's quantized subtrees
+    /// (`language_model.*` and `projector.layers` in the real
+    /// `mlx-community/DeepSeek-OCR-2-8bit` checkpoint; SAM / Qwen2 encoder ship
+    /// bf16). Present only when the `config.json` carries a `quantization`
+    /// section — a full-precision checkpoint would leave this `nil` and load
+    /// without any `QuantizedLinear`/`QuantizedEmbedding` swap. Read by
+    /// `DeepSeekOCR2Model.load(from:)` instead of hardcoding group_size/bits at
+    /// the load site.
+    public struct QuantizationConfig: Codable, Sendable {
+        public var groupSize = 64
+        public var bits = 8
+        /// Raw `mode` string from `config.json` (`"affine"` for this
+        /// checkpoint); mapped to `MLX.QuantizationMode` at the load site so
+        /// this pure-Foundation config type stays MLX-free.
+        public var mode = "affine"
+    }
+
     public var modelType = "deepseekocr_2"
     public var sam = SAMConfig(), qwen2Encoder = Qwen2EncoderConfig(), text = TextConfig()
     // projectorInput: Python dataclass default is 2048; real config.json merges to 896.
     public var projectorInput = 2048, projectorOutput = 1280
     public var bosTokenID = 0, eosTokenID = 1, imageTokenID = 128_815
+    /// nil unless the `config.json` has a `quantization` section (see above).
+    public var quantization: QuantizationConfig? = nil
 
     public static let `default` = DeepSeekOCR2Configuration()
     public init() {}
@@ -98,12 +117,18 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
             var input_dim: Int?
             var n_embed: Int?
         }
+        struct Quantization: Decodable {
+            var group_size: Int?
+            var bits: Int?
+            var mode: String?
+        }
         var model_type: String?
         var bos_token_id: Int?
         var eos_token_id: Int?
         var language_config: LanguageConfig?
         var vision_config: VisionConfig?
         var projector_config: ProjectorConfig?
+        var quantization: Quantization?
     }
 
     /// Merges the fields present in a real model `config.json` on top of the
@@ -146,6 +171,14 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
         if let pc = raw.projector_config {
             if let v = pc.input_dim { projectorInput = v }
             if let v = pc.n_embed { projectorOutput = v }
+        }
+
+        if let q = raw.quantization {
+            var qc = QuantizationConfig()
+            if let v = q.group_size { qc.groupSize = v }
+            if let v = q.bits { qc.bits = v }
+            if let v = q.mode { qc.mode = v }
+            quantization = qc
         }
     }
 }

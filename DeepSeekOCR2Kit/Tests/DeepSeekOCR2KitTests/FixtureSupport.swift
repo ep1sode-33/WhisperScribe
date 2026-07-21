@@ -1,7 +1,20 @@
 import Foundation
 import MLX
+import MLXLMCommon
 import MLXNN
 @testable import DeepSeekOCR2Kit
+
+/// Anything that can be greedy-decoded token-by-token from a starting set of
+/// input embeddings: the language model on its own (Task 7) and the full
+/// `DeepSeekOCR2Model` (Task 8) both satisfy this, so `greedyDecode` has one
+/// implementation and two call sites.
+protocol GreedyDecodable {
+    func newCache() -> [KVCache]
+    func embed(_ tokens: MLXArray) -> MLXArray
+    func callAsFunction(inputEmbeds: MLXArray, cache: [KVCache]?) -> MLXArray
+}
+
+extension MoELanguageModel: GreedyDecodable {}
 
 enum FixtureSupport {
     static var root: URL? {
@@ -23,6 +36,27 @@ enum FixtureSupport {
         guard let root else { throw NSError(domain: "fixtures-missing", code: 1) }
         let data = try Data(contentsOf: root.appending(path: dir).appending(path: "meta.json"))
         return try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    }
+
+    /// Greedy (argmax) decode of up to `steps` tokens, prefilling with `embeds`
+    /// then feeding each sampled token's embedding back in through the shared
+    /// KV cache. One implementation used by both `LanguageModelParityTests`
+    /// (Task 7) and `EndToEndParityTests` (Task 8). Stops early on `eos`.
+    /// `embeds` is cast to bf16 to match the checkpoint's compute precision.
+    static func greedyDecode<M: GreedyDecodable>(
+        model: M, embeds: MLXArray, steps: Int, eos: Int
+    ) -> [Int] {
+        let cache = model.newCache()
+        var logits = model(inputEmbeds: embeds.asType(.bfloat16), cache: cache)
+        var ids: [Int] = []
+        for _ in 0..<steps {
+            let next = MLX.argMax(logits[0..., -1, 0...], axis: -1)
+            let nextID = next.item(Int.self)
+            ids.append(nextID)
+            if nextID == eos { break }
+            logits = model(inputEmbeds: model.embed(next.reshaped(1, 1)), cache: cache)
+        }
+        return ids
     }
 
     /// Loads every tensor from the real checkpoint's
@@ -109,11 +143,12 @@ enum TestWeights {
             stripped[String(key.dropFirst(prefix.count))] = value
         }
 
-        quantize(model: module, groupSize: groupSize, bits: bits, mode: mode) { path, _ in
-            stripped["\(path).scales"] != nil
-        }
-
-        let parameters = ModuleParameters.unflattened(stripped)
-        try module.update(parameters: parameters, verify: .noUnusedKeys)
+        // Shared with `DeepSeekOCR2Model.load(from:)` -- one quantize+update
+        // implementation. `.noUnusedKeys` (not `.all`) because this loads a
+        // single subtree in isolation, so the module has no "missing" keys to
+        // check against the full checkpoint.
+        try QuantizedWeightLoader.load(
+            into: module, weights: stripped,
+            groupSize: groupSize, bits: bits, mode: mode, verify: .noUnusedKeys)
     }
 }

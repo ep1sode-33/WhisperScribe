@@ -45,7 +45,8 @@ public struct DeepSeekOCR2Configuration: Codable, Sendable {
     }
     public var modelType = "deepseekocr_2"
     public var sam = SAMConfig(), qwen2Encoder = Qwen2EncoderConfig(), text = TextConfig()
-    public var projectorInput = 896, projectorOutput = 1280
+    // projectorInput: Python dataclass default is 2048; real config.json merges to 896.
+    public var projectorInput = 2048, projectorOutput = 1280
     public var bosTokenID = 0, eosTokenID = 1, imageTokenID = 128_815
 
     public static let `default` = DeepSeekOCR2Configuration()

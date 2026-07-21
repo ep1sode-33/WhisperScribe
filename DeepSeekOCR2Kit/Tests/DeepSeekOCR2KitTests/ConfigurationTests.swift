@@ -22,5 +22,6 @@ import Foundation
         let c = try DeepSeekOCR2Configuration(mergingJSON: data)
         #expect(c.text.vocabSize == 129_280)
         #expect(c.modelType == "deepseekocr_2")
+        #expect(c.projectorInput == 896)
     }
 }

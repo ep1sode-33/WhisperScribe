@@ -12,6 +12,7 @@
 		722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */; };
 		830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8506F918B01095773E0A6D /* WhisperModelTests.swift */; };
 		A51889222013BC74C5860A0D /* MergeServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EB6EF9CEA139A0C155EFB5A /* MergeServiceTests.swift */; };
+		63ECE88B95FBDC6E92B0A9F7 /* DeepSeekOCR2Kit in Frameworks */ = {isa = PBXBuildFile; productRef = 6E9ABDD43D842DDB0E00258D /* DeepSeekOCR2Kit */; };
 		AA000000000000000000000A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000000C /* WhisperKit */; };
 		AF56D383D6EAD7A3452F2BEC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F0BBAC8C2B85469A650F6D6 /* Cocoa.framework */; };
 		B1C32B8BF6BF4A7A5993B7DF /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 918149AB2C192E219C04F3D6 /* SmokeTests.swift */; };
@@ -66,6 +67,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63ECE88B95FBDC6E92B0A9F7 /* DeepSeekOCR2Kit in Frameworks */,
 				AA000000000000000000000A /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -142,6 +144,7 @@
 			);
 			name = WhisperScribe;
 			packageProductDependencies = (
+				6E9ABDD43D842DDB0E00258D /* DeepSeekOCR2Kit */,
 				AA000000000000000000000C /* WhisperKit */,
 			);
 			productName = WhisperScribe;
@@ -196,6 +199,7 @@
 			mainGroup = AA0000000000000000000004;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				0B3631094DF23F39DC9A1B43 /* XCLocalSwiftPackageReference "DeepSeekOCR2Kit" */,
 				AA000000000000000000000B /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -417,18 +421,29 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		0B3631094DF23F39DC9A1B43 /* XCLocalSwiftPackageReference "DeepSeekOCR2Kit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = DeepSeekOCR2Kit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		AA000000000000000000000B /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
 			requirement = {
-				kind = exactVersion;
-				version = 0.18.0;
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		6E9ABDD43D842DDB0E00258D /* DeepSeekOCR2Kit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeepSeekOCR2Kit;
+		};
 		AA000000000000000000000C /* WhisperKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AA000000000000000000000B /* XCRemoteSwiftPackageReference "WhisperKit" */;

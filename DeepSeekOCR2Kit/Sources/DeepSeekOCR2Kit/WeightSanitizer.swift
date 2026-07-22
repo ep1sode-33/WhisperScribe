@@ -28,7 +28,7 @@ import MLX
 public enum WeightSanitizer {
     public static func sanitize(
         _ weights: [String: MLXArray], config: DeepSeekOCR2Configuration
-    ) -> [String: MLXArray] {
+    ) throws -> [String: MLXArray] {
         var renamed: [String: MLXArray] = [:]
         renamed.reserveCapacity(weights.count)
         for (key, value) in weights {
@@ -36,7 +36,7 @@ public enum WeightSanitizer {
         }
 
         let transposed = transposeConvWeights(renamed)
-        return stackExperts(transposed, config: config)
+        return try stackExperts(transposed, config: config)
     }
 
     // MARK: - Stage 1: prefix renames (Model.sanitize)
@@ -166,7 +166,7 @@ public enum WeightSanitizer {
     /// `[numExperts, outputDims, numGroups]` (scales/biases).
     private static func stackExperts(
         _ weights: [String: MLXArray], config: DeepSeekOCR2Configuration
-    ) -> [String: MLXArray] {
+    ) throws -> [String: MLXArray] {
         var out = weights
         for layer in 0..<config.text.layers {
             let prefix = "language_model.model.layers.\(layer)"
@@ -180,8 +180,11 @@ public enum WeightSanitizer {
                     for expert in 0..<config.text.numExperts {
                         let key = "\(prefix).mlp.experts.\(expert).\(projection).\(attribute)"
                         guard let value = out.removeValue(forKey: key) else {
-                            fatalError(
-                                "WeightSanitizer: missing expert \(expert) for "
+                            // A partial expert set is a corrupt/incompatible
+                            // checkpoint, not a programmer error -- surface it as
+                            // a typed load error rather than trapping. (A2)
+                            throw OCR2LoadError.missingTensor(
+                                "missing expert \(expert) for "
                                     + "\(prefix).mlp.\(projection).\(attribute) "
                                     + "(expected \(config.text.numExperts) experts)")
                         }

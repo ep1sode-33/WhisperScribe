@@ -15,7 +15,10 @@ import ImageIO
 ///
 /// If preprocessing matches the reference, real images produce
 /// reference-identical text -- which is exactly what (3) asserts.
-@Suite struct ProcessorTests {
+// `.serialized`: the end-to-end cases each load the full model (which now
+// eagerly materializes all weights, N2); serialize so at most one full model is
+// resident at a time instead of one per parallel case.
+@Suite(.serialized) struct ProcessorTests {
     static func cgImage(_ name: String) throws -> CGImage {
         let url = FixtureSupport.root!.appending(path: "images/\(name).png")
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),

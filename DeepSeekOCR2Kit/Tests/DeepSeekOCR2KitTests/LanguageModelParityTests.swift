@@ -12,7 +12,9 @@ import MLX
 /// `DeepSeekOCR2Configuration(mergingJSON:)` over the real `config.json`, and
 /// loading uses `TestWeights.loadQuantized` (the `language_model.*` subtree
 /// ships 8-bit quantized -- see `FixtureSupport.swift`).
-@Suite struct LanguageModelParityTests {
+// `.serialized`: both tests load the quantized language-model subtree; serialize
+// to avoid two resident copies in parallel under memory pressure.
+@Suite(.serialized) struct LanguageModelParityTests {
     static func realConfig() throws -> DeepSeekOCR2Configuration {
         let dir = try #require(FixtureSupport.modelDir)
         return try DeepSeekOCR2Configuration(

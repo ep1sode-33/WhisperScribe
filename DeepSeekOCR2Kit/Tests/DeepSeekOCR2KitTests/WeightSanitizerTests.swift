@@ -22,7 +22,7 @@ import MLX
     @Test(.enabled(if: modelDir != nil))
     func remapsAllCheckpointKeys() throws {
         let raw = try loadAllShards()
-        let out = WeightSanitizer.sanitize(raw, config: try Self.realConfig())
+        let out = try WeightSanitizer.sanitize(raw, config: try Self.realConfig())
         // On this pre-sanitized checkpoint, sanitize is an identity on key names, so set equality guards against future edits dropping or colliding keys.
         #expect(Set(out.keys) == Set(raw.keys))
         // 1) 不残留 checkpoint 前缀
@@ -43,7 +43,7 @@ import MLX
     @Test(.enabled(if: modelDir != nil))
     func spotChecksNumerics() throws {
         let raw = try loadAllShards()
-        let out = WeightSanitizer.sanitize(raw, config: try Self.realConfig())
+        let out = try WeightSanitizer.sanitize(raw, config: try Self.realConfig())
         // view_separator 数值与源张量一致(仅改名不动值;该 checkpoint 源键拼写已是 view_separator)
         let src = try #require(raw.first { $0.key.hasSuffix("view_separator") }?.value)
         #expect(allClose(out["view_separator"]!, src).item(Bool.self))
@@ -70,7 +70,7 @@ import MLX
         // an unrelated key should pass through untouched
         raw["language_model.model.norm.weight"] = MLXArray.ones([4])
 
-        let out = WeightSanitizer.sanitize(raw, config: config)
+        let out = try WeightSanitizer.sanitize(raw, config: config)
 
         #expect(!out.keys.contains { $0.contains(".experts.") })
         let stacked = try #require(out["language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight"])
@@ -82,6 +82,24 @@ import MLX
         // scales stacked the same way
         let stackedScales = try #require(out["language_model.model.layers.0.mlp.switch_mlp.gate_proj.scales"])
         #expect(stackedScales.shape == [3, 2])
+    }
+
+    /// A2: a partial expert set (expert 2 of 3 missing) throws a typed
+    /// `OCR2LoadError.missingTensor` instead of trapping via `fatalError`.
+    @Test func missingExpertThrowsTypedError() {
+        var config = DeepSeekOCR2Configuration.default
+        config.text.layers = 1
+        config.text.numExperts = 3
+
+        var raw: [String: MLXArray] = [:]
+        // Provide experts 0 and 1 but NOT 2 -> stacking cannot complete.
+        for e in 0..<2 {
+            raw["language_model.model.layers.0.mlp.experts.\(e).gate_proj.weight"] =
+                MLXArray.ones([2, 2]) * Float(e)
+        }
+        #expect(throws: OCR2LoadError.self) {
+            _ = try WeightSanitizer.sanitize(raw, config: config)
+        }
     }
 
     @Test
@@ -107,7 +125,7 @@ import MLX
         raw["lm_head.weight"] = MLXArray.ones([4, 4])
         raw["model.qwen2_model.model.model.norm.weight"] = MLXArray.ones([4])
 
-        let out = WeightSanitizer.sanitize(raw, config: .default)
+        let out = try WeightSanitizer.sanitize(raw, config: .default)
 
         #expect(!out.keys.contains { $0.hasPrefix("model.") })
         #expect(out["vision_model.qwen2_encoder.layers.0.input_layernorm.weight"] != nil)

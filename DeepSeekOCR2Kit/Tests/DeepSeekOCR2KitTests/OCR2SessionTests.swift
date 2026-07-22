@@ -18,7 +18,12 @@ private func collectStream(_ stream: AsyncThrowingStream<String, Error>) async t
 /// the streamed, incrementally-detokenized text to reproduce the reference's
 /// known doc_page prefix -- proving the streaming greedy loop + CJK-safe
 /// detokenizer match the parity-verified batch path.
-@Suite struct OCR2SessionTests {
+// `.serialized`: three tests here each load a full session (streaming,
+// concurrent, invalid-maxTokens); with eager weight materialization (N2) that
+// would be three resident models at once. Serialize to one at a time. (The
+// concurrent test still exercises concurrency internally via two overlapping
+// `ocr` calls on one loaded session.)
+@Suite(.serialized) struct OCR2SessionTests {
     static func cgImage(_ name: String) throws -> CGImage {
         let url = FixtureSupport.root!.appending(path: "images/\(name).png")
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),

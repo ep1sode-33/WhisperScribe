@@ -99,7 +99,7 @@ enum TestWeights {
         }
         let config = try DeepSeekOCR2Configuration(
             mergingJSON: Data(contentsOf: modelDir.appending(path: "config.json")))
-        let sanitized = WeightSanitizer.sanitize(raw, config: config)
+        let sanitized = try WeightSanitizer.sanitize(raw, config: config)
 
         var stripped: [String: MLXArray] = [:]
         for (key, value) in sanitized where key.hasPrefix(prefix) {
@@ -136,7 +136,7 @@ enum TestWeights {
         }
         let config = try DeepSeekOCR2Configuration(
             mergingJSON: Data(contentsOf: modelDir.appending(path: "config.json")))
-        let sanitized = WeightSanitizer.sanitize(raw, config: config)
+        let sanitized = try WeightSanitizer.sanitize(raw, config: config)
 
         var stripped: [String: MLXArray] = [:]
         for (key, value) in sanitized where key.hasPrefix(prefix) {

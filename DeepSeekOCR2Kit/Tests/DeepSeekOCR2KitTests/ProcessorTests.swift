@@ -24,6 +24,65 @@ import ImageIO
         return img
     }
 
+    /// Builds a synthetic `w x h` CGImage with every pixel set to `pixel`
+    /// (premultiplied-last bytes), for tests that don't need a fixture image.
+    static func rgbaImage(
+        width w: Int, height h: Int, pixel: (r: UInt8, g: UInt8, b: UInt8, a: UInt8)
+    ) -> CGImage {
+        var bytes = [UInt8](repeating: 0, count: w * h * 4)
+        for i in 0..<(w * h) {
+            bytes[i * 4 + 0] = pixel.r
+            bytes[i * 4 + 1] = pixel.g
+            bytes[i * 4 + 2] = pixel.b
+            bytes[i * 4 + 3] = pixel.a
+        }
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let provider = CGDataProvider(data: Data(bytes) as CFData)!
+        return CGImage(
+            width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: w * 4,
+            space: cs, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+    }
+
+    // MARK: 0. Correctness fixes (Codex review): no model weights required.
+
+    /// C2: a half-transparent black image composites onto WHITE (not black), so
+    /// every channel is a mid-gray (> 0), never pure black.
+    @Test func transparentPixelsCompositeOntoWhite() {
+        // Premultiplied-last (0,0,0,128) == black at 50% alpha; over white this
+        // yields ~127 (255 * (1 - 128/255)) on every channel.
+        let img = Self.rgbaImage(width: 8, height: 8, pixel: (0, 0, 0, 128))
+        let rgb = DeepSeekOCR2Processor.cgImageToRGB(img)
+        let minV = rgb.min().item(Float.self)
+        let meanV = rgb.mean().item(Float.self)
+        #expect(minV > 0, "transparent-black should not stay pure black (min \(minV))")
+        #expect(abs(meanV - 127) < 3, "expected ~127 gray, got \(meanV)")
+    }
+
+    /// C3: a prompt with no text after `<image>` throws (rather than silently
+    /// eating an image placeholder token). Needs the tokenizer, not the weights.
+    @Test(.enabled(if: FixtureSupport.modelDir != nil))
+    func emptyPromptAfterImageThrows() async throws {
+        let p = try await DeepSeekOCR2Processor(modelDir: FixtureSupport.modelDir!)
+        let img = Self.rgbaImage(width: 16, height: 16, pixel: (255, 255, 255, 255))
+        #expect(throws: OCR2PrepareError.emptyPromptAfterImage) {
+            _ = try p.prepare(image: img, prompt: "<image>")
+        }
+        // A prompt WITH post-image text still prepares.
+        _ = try p.prepare(image: img, prompt: "<image>\nFree OCR. ")
+    }
+
+    /// C5: an extreme aspect ratio (5000x2) prepares without crashing; the global
+    /// view still comes out (1, 1024, 1024, 3). Structure-only (tokenizer only).
+    @Test(.enabled(if: FixtureSupport.modelDir != nil))
+    func extremeAspectRatioPreparesWithoutCrash() async throws {
+        let p = try await DeepSeekOCR2Processor(modelDir: FixtureSupport.modelDir!)
+        let img = Self.rgbaImage(width: 5000, height: 2, pixel: (200, 200, 200, 255))
+        let input = try p.prepare(image: img, prompt: "<image>\nFree OCR. ")
+        #expect(input.pixelsGlobal.shape == [1, 1024, 1024, 3])
+        #expect(input.pixelsPatches != nil)
+    }
+
     // MARK: 1. Tokenizer + structural (tiling) parity -- the combined gate.
 
     @Test(

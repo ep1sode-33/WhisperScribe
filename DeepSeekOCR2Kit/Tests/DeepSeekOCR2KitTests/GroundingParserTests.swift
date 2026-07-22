@@ -24,6 +24,31 @@ import Foundation
         #expect(OCR2Session.parseGrounding("no markers").isEmpty)
     }
 
+    /// C4: coordinate sanity. Reversed corners (`x2 < x1` / `y2 < y1`) and
+    /// out-of-range (`> 1000`) boxes are dropped; in-range ordered boxes parse.
+    @Test func dropsOutOfRangeAndReversedBoxes() {
+        // reversed x (x2 < x1)
+        #expect(OCR2Session.parseGrounding("<|ref|>A<|/ref|><|det|>[[500, 10, 100, 800]]<|/det|>").isEmpty)
+        // reversed y (y2 < y1)
+        #expect(OCR2Session.parseGrounding("<|ref|>A<|/ref|><|det|>[[10, 800, 500, 100]]<|/det|>").isEmpty)
+        // x2 > 1000
+        #expect(OCR2Session.parseGrounding("<|ref|>A<|/ref|><|det|>[[10, 10, 1001, 800]]<|/det|>").isEmpty)
+        // y2 > 1000
+        #expect(OCR2Session.parseGrounding("<|ref|>A<|/ref|><|det|>[[10, 10, 500, 1001]]<|/det|>").isEmpty)
+
+        // a valid box still parses (and boundary value 1000 is allowed)
+        let boxes = OCR2Session.parseGrounding("<|ref|>A<|/ref|><|det|>[[0, 0, 1000, 1000]]<|/det|>")
+        #expect(boxes.count == 1)
+        #expect(abs(boxes[0].box.width - 1.0) < 1e-9)
+        #expect(abs(boxes[0].box.height - 1.0) < 1e-9)
+
+        // one malformed + one valid: only the valid one survives.
+        let mixed = OCR2Session.parseGrounding(
+            "<|ref|>bad<|/ref|><|det|>[[900, 10, 100, 20]]<|/det|> "
+                + "<|ref|>good<|/ref|><|det|>[[100, 200, 300, 400]]<|/det|>")
+        #expect(mixed.count == 1 && mixed[0].label == "good")
+    }
+
     /// Multiple ref/det pairs interleaved with prose (the shape a real
     /// `<|grounding|>` / Locate response takes) all parse; the CGRect geometry
     /// is `(x1, y1, x2-x1, y2-y1)` normalized by 1000.

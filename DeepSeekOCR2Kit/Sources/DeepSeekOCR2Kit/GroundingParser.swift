@@ -52,6 +52,13 @@ enum GroundingParser {
                 let y2 = Double(ns.substring(with: m.range(at: 5)))
             else { continue }
 
+            // Coordinate sanity (consistent with the drop-malformed policy): the
+            // reference emits ordered corners in `0...1000`. Drop reversed
+            // (`x2 < x1` / `y2 < y1`, which would yield a negative-size rect) or
+            // out-of-range boxes -- a garbled emission is not a box. `\d+` already
+            // guarantees the lower bound is >= 0.
+            guard x1 <= x2, y1 <= y2, x2 <= 1000, y2 <= 1000 else { continue }
+
             let box = CGRect(
                 x: x1 / 1000, y: y1 / 1000,
                 width: (x2 - x1) / 1000, height: (y2 - y1) / 1000)

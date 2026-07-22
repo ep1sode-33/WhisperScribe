@@ -30,8 +30,20 @@ public struct OCR2Input: @unchecked Sendable {
     public let pixelsPatches: MLXArray?
     /// `(1, L)` Bool; `true` exactly at image-token positions.
     public let seqMask: MLXArray
-    /// One `[rows, cols]` grid per image (the reference's `images_spatial_crop`).
+    /// One `[cols, rows]` grid per image, i.e. `[width_tiles, height_tiles]` --
+    /// the reference's `images_spatial_crop` (which is width-tiles-first; e.g. a
+    /// tall 700x2800 image yields `[[1, 4]]`: 1 column, 4 rows).
     public let spatialCrop: [[Int]]
+}
+
+/// Errors thrown by `DeepSeekOCR2Processor.prepare`.
+public enum OCR2PrepareError: Error, Equatable {
+    /// The prompt has no text after `<image>`. The reference tokenization strips
+    /// one trailing "inference mode" token from the post-image text; with an
+    /// empty tail that strip would instead consume an image placeholder token,
+    /// desynchronizing the image-token count from the visual features. Pass a
+    /// prompt with text after the marker, e.g. `"<image>\nFree OCR. "`.
+    case emptyPromptAfterImage
 }
 
 /// Image preprocessing (dynamic tiling + normalization) and prompt
@@ -98,13 +110,16 @@ public final class DeepSeekOCR2Processor: Sendable {
         let numPatches = patchViews.count
 
         // Tokens (structure + tokenizer).
-        let (tokenIDs, maskBools) = buildTokens(splits: splits, numPatches: numPatches)
+        let (tokenIDs, maskBools) = try buildTokens(splits: splits, numPatches: numPatches)
         let tokens = MLXArray(tokenIDs.map { Int32($0) }).reshaped(1, -1)
         let seqMask = MLXArray(maskBools).reshaped(1, -1)
 
+        // `images_spatial_crop` is width-tiles-first: emit `[cols, rows]`
+        // (== `[gi, gj]`), the meta.json parity order -- unchanged by the label
+        // rename above.
         return OCR2Input(
             tokens: tokens, pixelsGlobal: pixelsGlobal, pixelsPatches: pixelsPatches,
-            seqMask: seqMask, spatialCrop: [[crop.rows, crop.cols]])
+            seqMask: seqMask, spatialCrop: [[crop.cols, crop.rows]])
     }
 
     /// Decodes token ids to text via the loaded byte-level BPE tokenizer's own
@@ -135,7 +150,7 @@ public final class DeepSeekOCR2Processor: Sendable {
 
     // MARK: - Tokenization
 
-    private func buildTokens(splits: [String], numPatches: Int) -> (ids: [Int], mask: [Bool]) {
+    private func buildTokens(splits: [String], numPatches: Int) throws -> (ids: [Int], mask: [Bool]) {
         var ids: [Int] = []
         var mask: [Bool] = []
 
@@ -148,13 +163,18 @@ public final class DeepSeekOCR2Processor: Sendable {
         ids += Array(repeating: imageTokenID, count: n)
         mask += Array(repeating: true, count: n)
 
-        // Text after the last image.
+        // Text after the last image. The reference strips one trailing
+        // "inference mode" token from this tail (the `removeLast()` below); if the
+        // tail encodes to *zero* tokens that strip would instead eat the final
+        // image placeholder token, breaking the image-token/feature count
+        // invariant -- so reject an empty post-image segment loudly.
         let post = tokenizer.encode(text: splits[splits.count - 1], addSpecialTokens: false)
+        guard !post.isEmpty else { throw OCR2PrepareError.emptyPromptAfterImage }
         ids += post
         mask += Array(repeating: false, count: post.count)
 
         // Prepend BOS (hardcoded 0 in the reference), then inference_mode strips
-        // the final token.
+        // the final token (guaranteed a post-image text token by the guard above).
         ids = [bosTokenID] + ids
         mask = [false] + mask
         ids.removeLast()
@@ -171,13 +191,17 @@ public final class DeepSeekOCR2Processor: Sendable {
 
         // contain(): fit within (base, base) preserving aspect (Python round()
         // == round-half-to-even).
+        // Clamp the short side to >= 1: an extreme aspect ratio (e.g. 5000x2)
+        // rounds the short dimension to 0, which would crash the resize / canvas
+        // slice. `max(1, ...)` is a no-op for every realistic image (and every
+        // parity fixture), so it does not affect pixel parity.
         let nw: Int, nh: Int
         if imRatio > 1.0 {
             nw = baseSize
-            nh = Int((Double(baseSize) / imRatio).rounded(.toNearestOrEven))
+            nh = max(1, Int((Double(baseSize) / imRatio).rounded(.toNearestOrEven)))
         } else if imRatio < 1.0 {
             nh = baseSize
-            nw = Int((Double(baseSize) * imRatio).rounded(.toNearestOrEven))
+            nw = max(1, Int((Double(baseSize) * imRatio).rounded(.toNearestOrEven)))
         } else {
             nw = baseSize; nh = baseSize
         }
@@ -198,7 +222,7 @@ public final class DeepSeekOCR2Processor: Sendable {
 
     // MARK: - Local tiles (dynamic_preprocess)
 
-    private func dynamicPreprocess(_ rgb: MLXArray) -> (patches: [MLXArray], crop: (rows: Int, cols: Int)) {
+    private func dynamicPreprocess(_ rgb: MLXArray) -> (patches: [MLXArray], crop: (cols: Int, rows: Int)) {
         let h = rgb.dim(0), w = rgb.dim(1)
         let aspect = Double(w) / Double(h)
 
@@ -221,10 +245,13 @@ public final class DeepSeekOCR2Processor: Sendable {
         let best = findClosestAspectRatio(aspect: aspect, ratios: ordered, w: w, h: h)
         let (gi, gj) = (best[0], best[1])
 
+        // `best == [i, j]` where the compared target is `i/j` vs `aspect == w/h`,
+        // so `gi` is the number of tiles across the WIDTH (columns) and `gj` the
+        // number down the HEIGHT (rows).
         let tw = tileSize * gi, th = tileSize * gj
         let resized = resizeBicubic(rgb, outW: tw, outH: th)  // (th, tw, 3)
 
-        let cols = tw / tileSize  // == gi
+        let cols = tw / tileSize  // == gi (width tiles)
         var patches: [MLXArray] = []
         patches.reserveCapacity(gi * gj)
         for b in 0 ..< (gi * gj) {
@@ -232,7 +259,7 @@ public final class DeepSeekOCR2Processor: Sendable {
             let cy = (b / cols) * tileSize
             patches.append(resized[cy ..< (cy + tileSize), cx ..< (cx + tileSize), 0...])
         }
-        return (patches, (rows: gi, cols: gj))
+        return (patches, (cols: gi, rows: gj))
     }
 
     /// Verbatim port of `find_closest_aspect_ratio`: min |aspect - i/j|, ties
@@ -339,8 +366,19 @@ public final class DeepSeekOCR2Processor: Sendable {
 
     /// Renders `cg` into an sRGB RGBA8 bitmap and returns `(H, W, 3)` f32 in
     /// [0,255], top-left origin -- matching `np.array(Image.open(png).convert
-    /// ("RGB"))`. The PNGs carry no ICC/gamma, so sRGB rendering reproduces the
-    /// raw stored bytes (verified: darkest row + values match PIL exactly).
+    /// ("RGB"))` for the *opaque* inputs the parity fixtures use. The PNGs carry
+    /// no ICC/gamma, so sRGB rendering reproduces the raw stored bytes (verified:
+    /// darkest row + values match PIL exactly).
+    ///
+    /// **Transparency policy (divergence from PIL):** the context is filled with
+    /// WHITE before drawing, so semi-/fully-transparent pixels composite over
+    /// white rather than darkening toward black. This deliberately DIVERGES from
+    /// PIL's `convert("RGB")`, which drops the alpha channel (compositing over
+    /// black); white is the OCR-friendly choice (text on a light page). Fully
+    /// opaque inputs are unaffected -- their alpha is already 255 everywhere, so
+    /// the white fill is fully covered and the parity fixtures are unchanged.
+    /// After the white composite alpha is 255 everywhere, so dropping the alpha
+    /// slice below yields the exact composited RGB.
     static func cgImageToRGB(_ cg: CGImage) -> MLXArray {
         let w = cg.width, h = cg.height
         let bytesPerRow = w * 4
@@ -351,6 +389,9 @@ public final class DeepSeekOCR2Processor: Sendable {
                 data: ptr.baseAddress, width: w, height: h, bitsPerComponent: 8,
                 bytesPerRow: bytesPerRow, space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            // Composite onto white (see the transparency note above).
+            ctx.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+            ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
             ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
         }
         let rgba = MLXArray(Data(buffer), [h, w, 4], type: UInt8.self).asType(.float32)

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */; };
 		722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */; };
 		830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8506F918B01095773E0A6D /* WhisperModelTests.swift */; };
 		AA000000000000000000000A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000000C /* WhisperKit */; };
@@ -31,6 +32,7 @@
 		AA0000000000000000000006 /* WhisperScribe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WhisperScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8506F918B01095773E0A6D /* WhisperModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WhisperModelTests.swift; sourceTree = "<group>"; };
 		BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelManagerTests.swift; sourceTree = "<group>"; };
+		FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BatchClassifierTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -81,6 +83,7 @@
 				918149AB2C192E219C04F3D6 /* SmokeTests.swift */,
 				AF8506F918B01095773E0A6D /* WhisperModelTests.swift */,
 				BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */,
+				FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */,
 			);
 			name = WhisperScribeTests;
 			path = WhisperScribeTests;
@@ -225,6 +228,7 @@
 				B1C32B8BF6BF4A7A5993B7DF /* SmokeTests.swift in Sources */,
 				830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */,
 				722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */,
+				703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

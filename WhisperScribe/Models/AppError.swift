@@ -8,6 +8,10 @@ enum AppError: LocalizedError, Equatable {
     case transcriptionFailed(String)
     case writeFailed(String)
     case cancelled
+    case mixedBatch
+    case unsupportedFile(String)
+    case ocrModelMissing
+    case ocrFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +29,14 @@ enum AppError: LocalizedError, Equatable {
             return String.localizedStringWithFormat(NSLocalizedString("error.writeFailed", comment: ""), m)
         case .cancelled:
             return String(localized: "error.cancelled")
+        case .mixedBatch:
+            return String(localized: "error.mixedBatch")
+        case .unsupportedFile(let m):
+            return String.localizedStringWithFormat(NSLocalizedString("error.unsupportedImage", comment: ""), m)
+        case .ocrModelMissing:
+            return String(localized: "error.ocrModelMissing")
+        case .ocrFailed(let m):
+            return String.localizedStringWithFormat(NSLocalizedString("error.ocrFailed", comment: ""), m)
         }
     }
 }

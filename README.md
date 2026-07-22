@@ -12,10 +12,10 @@ merges, deduplicates and polishes the result.
 </p>
 
 > **Name heritage:** the app began as **WhisperScribe** (audio-only) and grew image OCR
-> plus multi-file merge into **OmniScribe**. The user-facing display name is now
-> **OmniScribe**, but the repository, Xcode project, app bundle, scheme, and `.dmg` are
-> still named **WhisperScribe** — so on-disk paths like `/Applications/WhisperScribe.app`
-> below are correct.
+> plus multi-file merge into **OmniScribe**. The **repository, Xcode project, scheme, and
+> bundle identifier** (`com.william.WhisperScribe`) are still named **WhisperScribe**, but
+> the shipped **app bundle and `.dmg` are now named OmniScribe** — so on-disk paths like
+> `/Applications/OmniScribe.app` below are correct.
 
 ## Features
 
@@ -32,16 +32,15 @@ merges, deduplicates and polishes the result.
 
 ## Install
 
-Download the latest `WhisperScribe-<version>.dmg` from
+Download the latest `OmniScribe-<version>.dmg` from
 [Releases](https://github.com/ep1sode-33/WhisperScribe/releases), open it and drag
 **OmniScribe** into **Applications**.
 
 The app is **ad-hoc signed** (not notarized), so on first launch Gatekeeper will
-claim it is "damaged". Clear the quarantine flag once and it opens normally (the app
-bundle on disk is still `WhisperScribe.app` — see *Name heritage* above):
+claim it is "damaged". Clear the quarantine flag once and it opens normally:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/WhisperScribe.app
+xattr -dr com.apple.quarantine /Applications/OmniScribe.app
 ```
 
 Prefer building from source? See [Build & run](#build--run).

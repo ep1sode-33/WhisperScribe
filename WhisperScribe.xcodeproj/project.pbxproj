@@ -39,7 +39,7 @@
 		6070727F8692C80EAE5F071F /* WhisperScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WhisperScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MergedNamingTests.swift; sourceTree = "<group>"; };
 		918149AB2C192E219C04F3D6 /* SmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
-		AA0000000000000000000006 /* WhisperScribe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WhisperScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000006 /* OmniScribe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OmniScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8506F918B01095773E0A6D /* WhisperModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WhisperModelTests.swift; sourceTree = "<group>"; };
 		B93B8E98B733749629400F3D /* OCRServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OCRServiceTests.swift; sourceTree = "<group>"; };
 		BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelManagerTests.swift; sourceTree = "<group>"; };
@@ -121,7 +121,7 @@
 		AA0000000000000000000005 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000006 /* WhisperScribe.app */,
+				AA0000000000000000000006 /* OmniScribe.app */,
 				6070727F8692C80EAE5F071F /* WhisperScribeTests.xctest */,
 			);
 			name = Products;
@@ -160,7 +160,7 @@
 				CDB84D826CA2C83352A8D2B2 /* Hub */,
 			);
 			productName = WhisperScribe;
-			productReference = AA0000000000000000000006 /* WhisperScribe.app */;
+			productReference = AA0000000000000000000006 /* OmniScribe.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E77F40A7969AF8CCD17A9A98 /* WhisperScribeTests */ = {
@@ -292,7 +292,7 @@
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WhisperScribe.app/Contents/MacOS/WhisperScribe";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OmniScribe.app/Contents/MacOS/OmniScribe";
 			};
 			name = Debug;
 		};
@@ -357,7 +357,8 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.william.WhisperScribe;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = WhisperScribe;
+				PRODUCT_NAME = OmniScribe;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -384,7 +385,8 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.william.WhisperScribe;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = WhisperScribe;
+				PRODUCT_NAME = OmniScribe;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -403,7 +405,7 @@
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WhisperScribe.app/Contents/MacOS/WhisperScribe";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/OmniScribe.app/Contents/MacOS/OmniScribe";
 			};
 			name = Release;
 		};

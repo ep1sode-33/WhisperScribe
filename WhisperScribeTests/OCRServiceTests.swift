@@ -8,6 +8,7 @@ import Foundation
 /// 供 BatchPipelineTests 复用的 fake（本文件内 internal）
 final class FakeOCR: OCRProviding, @unchecked Sendable {
     var prepared = false
+    var unloadCalled = false                        // records model-memory release
     var results: [String: String] = [:]           // fileName → text
     var failOn: Set<String> = []
     func prepare(modelDir: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
@@ -20,7 +21,7 @@ final class FakeOCR: OCRProviding, @unchecked Sendable {
         onChunk(text)
         return text
     }
-    func unload() async { prepared = false }
+    func unload() async { prepared = false; unloadCalled = true }
 }
 
 struct OCRServiceTests {

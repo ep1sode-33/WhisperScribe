@@ -7,8 +7,12 @@ import Combine
 // MARK: - Fakes (own to this file; FakeOCR is reused from OCRServiceTests, internal)
 
 /// Minimal `Transcribing` fake: returns fixed segments, ignores the samples.
+/// Records `unload()` so a batch can assert model-memory exclusivity.
 private final class FakeTranscriber: Transcribing, @unchecked Sendable {
     let segments: [TimedSegment]
+    private let lock = NSLock()
+    private var _unloadCalled = false
+    var unloadCalled: Bool { lock.lock(); defer { lock.unlock() }; return _unloadCalled }
     init(segments: [TimedSegment] = []) { self.segments = segments }
     func prepare(modelFolder: String) async throws {}
     func transcribe(samples: [Float], language: String?,
@@ -16,7 +20,7 @@ private final class FakeTranscriber: Transcribing, @unchecked Sendable {
         progress(1.0)
         return segments
     }
-    func unload() async {}
+    func unload() async { lock.lock(); _unloadCalled = true; lock.unlock() }
 }
 
 /// Own `ChatStreaming` fake for MergeService (MergeServiceTests' FakeChat is private).
@@ -31,6 +35,20 @@ private final class RecordingChat: ChatStreaming, @unchecked Sendable {
     func streamChat(config: LLMConfig, system: String, user: String,
                     onDelta: @escaping @Sendable (String) -> Void) async throws -> String {
         lock.lock(); _users.append(user); lock.unlock()
+        onDelta(reply)
+        return reply
+    }
+}
+
+/// Suspending `ChatStreaming` fake for MergeService: `streamChat` parks on a `Gate` so a
+/// test can cancel the job while it is stalled mid-merge, then resume it deterministically.
+private final class GatedChat: ChatStreaming, @unchecked Sendable {
+    let gate: Gate
+    let reply: String
+    init(gate: Gate, reply: String) { self.gate = gate; self.reply = reply }
+    func streamChat(config: LLMConfig, system: String, user: String,
+                    onDelta: @escaping @Sendable (String) -> Void) async throws -> String {
+        await gate.wait()
         onDelta(reply)
         return reply
     }
@@ -338,5 +356,74 @@ struct BatchPipelineTests {
         #expect(txts.count == 1)
         #expect(try String(contentsOf: txts[0], encoding: .utf8) == "MERGED-AUDIO")
         #expect(chat.callCount == 1)
+    }
+
+    /// 9. Model-memory exclusivity: an image batch must release the Whisper model before
+    /// loading the OCR model, so the transcriber's `unload()` is invoked.
+    @Test @MainActor func imageBatchUnloadsTranscriber() async throws {
+        let dir = try tempDir()
+        let imgs = ["1.png", "2.png"].map { dir.appendingPathComponent($0) }
+        let (settings, restore) = isolatedSettings(); defer { restore() }
+        configured(settings)
+        let transcriber = FakeTranscriber()
+        let ocr = FakeOCR(); ocr.results = ["1.png": "A", "2.png": "B"]
+        let vm = makeVM(settings: settings, transcriber: transcriber, ocr: ocr,
+                        ocrModels: try installedOCRModels(),
+                        merger: MergeService(chat: RecordingChat(reply: "M")),
+                        modelManager: try freshModelManager())
+
+        vm.start(urls: imgs)
+        await waitUntil { !vm.state.isBusy }
+
+        #expect(transcriber.unloadCalled)
+    }
+
+    /// 10. Model-memory exclusivity: an audio batch must release the OCR model before
+    /// loading Whisper, so the OCR provider's `unload()` is invoked.
+    @Test @MainActor func audioBatchUnloadsOCR() async throws {
+        let dir = try tempDir()
+        let a = dir.appendingPathComponent("1.wav"); try makeWav(at: a)
+        let b = dir.appendingPathComponent("2.wav"); try makeWav(at: b)
+        let (settings, restore) = isolatedSettings(); defer { restore() }
+        settings.cleanupLevel = .raw; configured(settings)
+        let ocr = FakeOCR()
+        let vm = makeVM(settings: settings, transcriber: FakeTranscriber(segments: [seg("hello")]),
+                        ocr: ocr, ocrModels: try missingOCRModels(),
+                        merger: MergeService(chat: RecordingChat(reply: "M")),
+                        modelManager: try readyModelManager())
+
+        vm.start(urls: [a, b])
+        await waitUntil { !vm.state.isBusy }
+
+        #expect(ocr.unloadCalled)
+    }
+
+    /// 11. Cancel while the merge phase is parked mid-stream -> state returns to `.idle`
+    /// and NO merged `.txt` is written (the write is guarded by a post-merge cancel check).
+    @Test @MainActor func cancelDuringMergeReturnsIdle() async throws {
+        let dir = try tempDir()
+        let imgs = ["1.png", "2.png"].map { dir.appendingPathComponent($0) }
+        let (settings, restore) = isolatedSettings(); defer { restore() }
+        configured(settings)
+        let ocr = FakeOCR(); ocr.results = ["1.png": "A", "2.png": "B"]
+        let gate = Gate()
+        let vm = makeVM(settings: settings, ocr: ocr, ocrModels: try installedOCRModels(),
+                        merger: MergeService(chat: GatedChat(gate: gate, reply: "MERGED")),
+                        modelManager: try freshModelManager())
+
+        vm.start(urls: imgs)
+        await waitUntil { gate.waiterCount == 1 }     // parked inside the merge's streamChat
+        guard case .merging = vm.state else { Issue.record("expected .merging, got \(vm.state)"); return }
+        vm.cancel()
+        gate.resumeNext()                              // streamChat returns; merge completes
+        await waitUntil { vm.state == .idle }
+
+        #expect(vm.state == .idle)
+        // The merged file must NOT have been written — the only .txt a done image batch
+        // produces is the merged output, so an empty .txt scan proves the write was skipped.
+        let mergedURL = dir.appendingPathComponent("1 merged.txt")
+        #expect(!FileManager.default.fileExists(atPath: mergedURL.path))
+        let leftovers = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+        #expect(!leftovers.contains { $0.pathExtension == "txt" })
     }
 }

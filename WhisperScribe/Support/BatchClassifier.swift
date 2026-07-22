@@ -71,7 +71,7 @@ enum BatchClassifier {
         imageExtensions.contains(url.pathExtension.lowercased())
     }
 
-    /// Mirrors `DropZone.isMediaURL`: resolve the content type, falling back to the extension.
+    /// Resolve the audio/video content type, falling back to the filename extension.
     private static func isAudioURL(_ url: URL) -> Bool {
         if let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType {
             return type.conforms(to: .audio) || type.conforms(to: .audiovisualContent)

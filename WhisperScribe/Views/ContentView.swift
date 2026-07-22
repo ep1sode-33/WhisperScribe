@@ -21,8 +21,8 @@ struct ContentView: View {
             Group {
                 if isIdle {
                     if modelManager.isReady {
-                        DropZone { url in
-                            viewModel.start(url: url)
+                        DropZone { urls in
+                            viewModel.start(urls: urls)
                         }
                         .padding(20)
                     } else {
@@ -87,14 +87,14 @@ struct ContentView: View {
 
     private func chooseFile() {
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.audio, .audiovisualContent]
+        panel.allowedContentTypes = [.audio, .audiovisualContent, .image]
         panel.prompt = String(localized: "common.choose")
         panel.message = String(localized: "common.chooseMediaMessage")
-        if panel.runModal() == .OK, let url = panel.url {
-            viewModel.start(url: url)
+        if panel.runModal() == .OK, !panel.urls.isEmpty {
+            viewModel.start(urls: panel.urls)
         }
     }
 }

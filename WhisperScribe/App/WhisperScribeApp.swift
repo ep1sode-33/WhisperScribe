@@ -20,6 +20,7 @@ struct WhisperScribeApp: App {
                 .environmentObject(appModel.settings)
                 .environmentObject(appModel)
                 .environmentObject(appModel.modelManager)
+                .environmentObject(appModel.ocrModels)
         }
     }
 }

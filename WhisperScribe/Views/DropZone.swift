@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DropZone: View {
-    var onPick: (URL) -> Void
+    var onPick: ([URL]) -> Void
 
     @State private var isTargeted = false
 
@@ -14,7 +14,7 @@ struct DropZone: View {
             Text("drop.title")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("drop.subtitle")
+            Text("drop.subtitleMulti")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -37,25 +37,29 @@ struct DropZone: View {
         }
     }
 
+    /// Resolve the file URL from *every* dropped provider, then deliver them in ONE `onPick`
+    /// call. Provider order is preserved (a fixed slot array indexed by provider position);
+    /// `BatchClassifier` re-sorts into natural order downstream. Only audio/image URLs pass
+    /// the `isAcceptedURL` filter; a drop that yields none is silently ignored. Writes are
+    /// serialised on `lock` because provider completions fire on arbitrary queues.
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-        _ = provider.loadObject(ofClass: URL.self) { url, _ in
-            guard let url, Self.isMediaURL(url) else { return }
-            DispatchQueue.main.async {
-                onPick(url)
+        let group = DispatchGroup()
+        let lock = DispatchQueue(label: "DropZone.collect")
+        var slots = [URL?](repeating: nil, count: providers.count)
+        for (index, provider) in providers.enumerated() {
+            group.enter()
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                if let url, BatchClassifier.isAcceptedURL(url) {
+                    lock.sync { slots[index] = url }
+                }
+                group.leave()
             }
         }
+        group.notify(queue: .main) {
+            let urls = lock.sync { slots.compactMap { $0 } }
+            guard !urls.isEmpty else { return }
+            onPick(urls)
+        }
         return true
-    }
-
-    static func isMediaURL(_ url: URL) -> Bool {
-        // Prefer the resolved content type; fall back to the extension.
-        if let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType {
-            return type.conforms(to: .audio) || type.conforms(to: .audiovisualContent)
-        }
-        if let type = UTType(filenameExtension: url.pathExtension) {
-            return type.conforms(to: .audio) || type.conforms(to: .audiovisualContent)
-        }
-        return false
     }
 }

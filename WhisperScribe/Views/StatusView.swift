@@ -5,6 +5,10 @@ struct StatusView: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            if let batch = viewModel.batch {
+                batchHeader(batch)
+            }
+
             switch viewModel.state {
             case .idle:
                 EmptyView()
@@ -39,6 +43,18 @@ struct StatusView: View {
     }
 
     // MARK: - Subviews
+
+    /// Multi-file batch header, shown above the active stage while `viewModel.batch != nil`.
+    /// Formats `batch.fileProgress` — "File i of N — filename".
+    private func batchHeader(_ batch: BatchProgress) -> some View {
+        Text(String.localizedStringWithFormat(
+            NSLocalizedString("batch.fileProgress", comment: ""),
+            batch.index, batch.count, batch.fileName))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
 
     private func indeterminate(_ label: String) -> some View {
         VStack(spacing: 14) {
@@ -118,6 +134,14 @@ struct StatusView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+
+            if let fileCount = viewModel.lastBatchFileCount {
+                Text(String.localizedStringWithFormat(
+                    NSLocalizedString("done.batchSummary", comment: ""),
+                    fileCount, outputs.count))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             if !warnings.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {

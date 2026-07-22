@@ -6,6 +6,10 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var state: JobState = .idle
     /// Progress across a multi-file batch; `nil` for single-file / non-batch jobs.
     @Published var batch: BatchProgress?
+    /// Source-file count of the batch that produced the current `.done` outputs. `batch` is
+    /// cleared on every terminal state, so this survives to let the done view render the
+    /// `done.batchSummary` ("N files → M outputs") line. Reset on a new job / `reset()`.
+    @Published var lastBatchFileCount: Int?
 
     private let settings: SettingsStore
     private let transcriber: Transcribing
@@ -62,6 +66,7 @@ final class TranscriptionViewModel: ObservableObject {
         jobToken &+= 1
         let token = jobToken
         batch = nil
+        lastBatchFileCount = nil
         state = .loadingModel
 
         task = Task { [weak self] in
@@ -81,6 +86,7 @@ final class TranscriptionViewModel: ObservableObject {
         guard !state.isBusy else { return }
         state = .idle
         batch = nil
+        lastBatchFileCount = nil
     }
 
     func revealInFinder() {
@@ -168,6 +174,7 @@ final class TranscriptionViewModel: ObservableObject {
             guard jobToken == token else { return }
             batch = nil
             lastOutputs = outputs
+            lastBatchFileCount = files.count
             state = .done(outputs: outputs, warnings: warnings)
         } catch is CancellationError {
             state = .idle
@@ -289,6 +296,7 @@ final class TranscriptionViewModel: ObservableObject {
             guard jobToken == token else { return }
             batch = nil
             lastOutputs = [mergedURL]
+            lastBatchFileCount = files.count
             state = .done(outputs: [mergedURL], warnings: warnings)
         } catch is CancellationError {
             state = .idle

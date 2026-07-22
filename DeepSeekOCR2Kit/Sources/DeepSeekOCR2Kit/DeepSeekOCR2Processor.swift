@@ -105,7 +105,7 @@ public final class DeepSeekOCR2Processor: Sendable {
         let pixelsGlobal = normalize(globalHWC).expandedDimensions(axis: 0)  // (1, 1024, 1024, 3) bf16
 
         // Local tiles: dynamic_preprocess.
-        let (patchViews, crop) = dynamicPreprocess(rgb)                // [(768,768,3) f32], (rows, cols)
+        let (patchViews, crop) = dynamicPreprocess(rgb)                // [(768,768,3) f32], (cols, rows)
         let pixelsPatches = MLX.stacked(patchViews.map { normalize($0) }, axis: 0)  // (P,768,768,3) bf16
         let numPatches = patchViews.count
 

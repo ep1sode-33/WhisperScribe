@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		62F767EB4737E5DE991D208B /* MergedNamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */; };
 		703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */; };
 		722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */; };
 		830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8506F918B01095773E0A6D /* WhisperModelTests.swift */; };
@@ -28,6 +29,7 @@
 /* Begin PBXFileReference section */
 		0F0BBAC8C2B85469A650F6D6 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		6070727F8692C80EAE5F071F /* WhisperScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WhisperScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MergedNamingTests.swift; sourceTree = "<group>"; };
 		918149AB2C192E219C04F3D6 /* SmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000006 /* WhisperScribe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WhisperScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8506F918B01095773E0A6D /* WhisperModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WhisperModelTests.swift; sourceTree = "<group>"; };
@@ -84,6 +86,7 @@
 				AF8506F918B01095773E0A6D /* WhisperModelTests.swift */,
 				BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */,
 				FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */,
+				6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */,
 			);
 			name = WhisperScribeTests;
 			path = WhisperScribeTests;
@@ -229,6 +232,7 @@
 				830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */,
 				722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */,
 				703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */,
+				62F767EB4737E5DE991D208B /* MergedNamingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

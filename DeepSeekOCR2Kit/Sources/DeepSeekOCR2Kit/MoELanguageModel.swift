@@ -284,6 +284,10 @@ public final class MoELanguageModel: Module {
         // real checkpoint actually uses: no grouped routing (Python's
         // "noaux_tc" topk_method) and no MLA attention. Fail loudly rather
         // than silently mis-route/mis-attend if a future config disagrees.
+        // This fatalError is a documented invariant for a directly-constructed
+        // model; the PUBLIC load path (`DeepSeekOCR2Model.load(from:)`) calls
+        // `validateSupported(_:)` before constructing this, so it throws
+        // `OCR2LoadError.unsupportedConfiguration` instead of ever trapping here.
         guard config.nGroup == 1, config.topkGroup == 1, config.qkNopeHeadDim == 0 else {
             fatalError(
                 "MoELanguageModel requires nGroup == 1, topkGroup == 1, qkNopeHeadDim == 0 "

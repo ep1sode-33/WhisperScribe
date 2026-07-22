@@ -18,7 +18,11 @@ import MLX
 /// Python reference, internally) applies right before SAM.
 extension DeepSeekOCR2Model: GreedyDecodable {}
 
-@Suite struct EndToEndParityTests {
+// `.serialized`: each case loads the full quantized model; since load now
+// eagerly materializes all weights (N2), running the parameterized cases in
+// parallel would hold several full models resident at once and exhaust memory.
+// Serializing caps this suite to one resident model at a time.
+@Suite(.serialized) struct EndToEndParityTests {
     @Test(
         .enabled(if: FixtureSupport.root != nil && FixtureSupport.modelDir != nil),
         arguments: ["doc_page", "cjk_dense", "tall_scroll"]

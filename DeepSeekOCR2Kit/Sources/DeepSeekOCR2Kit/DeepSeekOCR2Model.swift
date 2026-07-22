@@ -32,6 +32,26 @@ import MLX
 import MLXLMCommon
 import MLXNN
 
+// MARK: - Load errors
+
+/// Errors thrown by `DeepSeekOCR2Model.load(from:)` (and the `OCR2Session.load`
+/// that wraps it). These replace the former `as!`/`fatalError`/silent-default
+/// failure modes on the public load path, so a bad checkpoint surfaces as a
+/// catchable Swift error instead of a trap.
+public enum OCR2LoadError: Error, Equatable {
+    /// `model.safetensors.index.json` exists but is not the expected
+    /// `{ "weight_map": { tensor: shard } }` shape.
+    case malformedIndex(String)
+    /// A tensor the module tree requires is absent from the checkpoint (e.g. a
+    /// missing MoE expert shard during expert-stacking).
+    case missingTensor(String)
+    /// The checkpoint's config selects a code path this port does not implement
+    /// (grouped MoE routing or MLA attention -- see `MoELanguageModel`).
+    case unsupportedConfiguration(String)
+    /// The config's `quantization.mode` is not a mode MLX supports.
+    case unsupportedQuantization(String)
+}
+
 // MARK: - Projector (deepseekocr_2.py: MlpProjector)
 
 /// `projector_type == "linear"` -> a single `Linear(input_dim, n_embed)` under
@@ -116,7 +136,14 @@ public final class DeepSeekOCR2Model: Module {
 
     let config: DeepSeekOCR2Configuration
 
-    public init(_ config: DeepSeekOCR2Configuration) {
+    // Direct construction + the raw inference surface (`init`, `inputEmbeddings`,
+    // `callAsFunction`, `embed`, `newCache`) are `internal`, NOT `public`: the
+    // public entry point is `load(from:progress:)` (which returns a fully
+    // materialized model) driven through `OCR2Session`. `.default`
+    // `DeepSeekOCR2Configuration` is a Python-dataclass mirror, not a loadable
+    // config, so a public `init(_:)` would advertise an unusable surface. Tests
+    // reach these via `@testable import`.
+    init(_ config: DeepSeekOCR2Configuration) {
         self.config = config
         self._samModel.wrappedValue = SAMEncoder(config.sam)
         self._visionModel.wrappedValue = DeepSeekVisionModel(config.qwen2Encoder)
@@ -150,7 +177,7 @@ public final class DeepSeekOCR2Model: Module {
     ///   - pixelsPatches: `(P, 768, 768, 3)` NHWC local tiles, or `nil` for a
     ///     no-crop image.
     ///   - seqMask: `(1, L)` Bool; `true` exactly at image-token positions.
-    public func inputEmbeddings(
+    func inputEmbeddings(
         tokens: MLXArray, pixelsGlobal: MLXArray,
         pixelsPatches: MLXArray?, seqMask: MLXArray
     ) -> MLXArray {
@@ -214,15 +241,15 @@ public final class DeepSeekOCR2Model: Module {
 
     // MARK: LM delegation (so the greedy-decode helper treats this like the LM)
 
-    public func callAsFunction(inputEmbeds: MLXArray, cache: [KVCache]?) -> MLXArray {
+    func callAsFunction(inputEmbeds: MLXArray, cache: [KVCache]?) -> MLXArray {
         languageModel(inputEmbeds: inputEmbeds, cache: cache)
     }
 
-    public func embed(_ tokens: MLXArray) -> MLXArray {
+    func embed(_ tokens: MLXArray) -> MLXArray {
         languageModel.embed(tokens)
     }
 
-    public func newCache() -> [KVCache] {
+    func newCache() -> [KVCache] {
         languageModel.newCache()
     }
 
@@ -237,6 +264,12 @@ public final class DeepSeekOCR2Model: Module {
     ) async throws -> (model: DeepSeekOCR2Model, config: DeepSeekOCR2Configuration) {
         let config = try DeepSeekOCR2Configuration(
             mergingJSON: Data(contentsOf: dir.appending(path: "config.json")))
+
+        // Validate the config against this port's implemented code paths BEFORE
+        // constructing the model, so the public load path throws a typed error
+        // rather than tripping `MoELanguageModel.init`'s fatalError invariant.
+        try validateSupported(config)
+
         let model = DeepSeekOCR2Model(config)
 
         // Resolve the shard set from the index (falling back to a lone
@@ -250,10 +283,10 @@ public final class DeepSeekOCR2Model: Module {
             progress(Double(i + 1) / Double(shards.count))
         }
 
-        let sanitized = WeightSanitizer.sanitize(raw, config: config)
+        let sanitized = try WeightSanitizer.sanitize(raw, config: config)
 
         if let q = config.quantization {
-            let mode = QuantizationMode(rawValue: q.mode) ?? .affine
+            let mode = try quantizationMode(q.mode)
             try QuantizedWeightLoader.load(
                 into: model, weights: sanitized,
                 groupSize: q.groupSize, bits: q.bits, mode: mode, verify: .all)
@@ -261,15 +294,50 @@ public final class DeepSeekOCR2Model: Module {
             try model.update(parameters: ModuleParameters.unflattened(sanitized), verify: .all)
         }
 
+        // Materialize every parameter now (mirrors `MLXLMCommon.loadWeights`,
+        // which ends with `eval(model)`): the model and its lazily-evaluated
+        // MLXArray weights cross into `OCR2Session`'s generation `Task`, and a
+        // lazy array must not be first-evaluated across an isolation boundary.
+        // (N2)
+        MLX.eval(model)
+
         return (model, config)
+    }
+
+    /// Rejects configs whose code paths this port does not implement (grouped
+    /// MoE routing / MLA attention), throwing before the model is constructed so
+    /// the public `load` path never reaches `MoELanguageModel.init`'s fatalError.
+    /// (A2)
+    static func validateSupported(_ config: DeepSeekOCR2Configuration) throws {
+        guard config.text.nGroup == 1, config.text.topkGroup == 1, config.text.qkNopeHeadDim == 0
+        else {
+            throw OCR2LoadError.unsupportedConfiguration(
+                "nGroup=\(config.text.nGroup) topkGroup=\(config.text.topkGroup) "
+                    + "qkNopeHeadDim=\(config.text.qkNopeHeadDim); grouped MoE routing and MLA "
+                    + "attention are not implemented")
+        }
+    }
+
+    /// Maps a `config.json` `quantization.mode` string to `QuantizationMode`,
+    /// throwing `OCR2LoadError.unsupportedQuantization` for an unknown mode
+    /// (instead of silently defaulting to `.affine`, which would mis-dequantize
+    /// a genuinely different format). Factored out for direct unit testing. (A5)
+    static func quantizationMode(_ raw: String) throws -> QuantizationMode {
+        guard let mode = QuantizationMode(rawValue: raw) else {
+            throw OCR2LoadError.unsupportedQuantization(raw)
+        }
+        return mode
     }
 
     private static func shardNames(in dir: URL) throws -> [String] {
         let indexURL = dir.appending(path: "model.safetensors.index.json")
         if FileManager.default.fileExists(atPath: indexURL.path) {
-            let index = try JSONSerialization.jsonObject(with: Data(contentsOf: indexURL))
-                as! [String: Any]
-            let weightMap = index["weight_map"] as! [String: String]
+            guard
+                let index = try JSONSerialization.jsonObject(with: Data(contentsOf: indexURL))
+                    as? [String: Any]
+            else { throw OCR2LoadError.malformedIndex("index root is not a JSON object") }
+            guard let weightMap = index["weight_map"] as? [String: String]
+            else { throw OCR2LoadError.malformedIndex("missing or non-string 'weight_map'") }
             return Set(weightMap.values).sorted()
         }
         return ["model.safetensors"]

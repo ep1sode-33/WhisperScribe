@@ -10,6 +10,11 @@ final class TranscriptionViewModel: ObservableObject {
     /// cleared on every terminal state, so this survives to let the done view render the
     /// `done.batchSummary` ("N files → M outputs") line. Reset on a new job / `reset()`.
     @Published var lastBatchFileCount: Int?
+    /// True only while an image batch is releasing Whisper and loading the OCR model, i.e. the
+    /// `.loadingModel` phase of `runImageBatch`. Lets StatusView show the OCR-specific
+    /// "Loading OCR model…" label instead of the Whisper one for the shared `.loadingModel`
+    /// state. Cleared once prepare completes and on every terminal / cancel path.
+    @Published var isLoadingOCRModel: Bool = false
 
     private let settings: SettingsStore
     private let transcriber: Transcribing
@@ -67,6 +72,7 @@ final class TranscriptionViewModel: ObservableObject {
         let token = jobToken
         batch = nil
         lastBatchFileCount = nil
+        isLoadingOCRModel = false
         state = .loadingModel
 
         task = Task { [weak self] in
@@ -87,6 +93,7 @@ final class TranscriptionViewModel: ObservableObject {
         state = .idle
         batch = nil
         lastBatchFileCount = nil
+        isLoadingOCRModel = false
     }
 
     func revealInFinder() {
@@ -241,11 +248,15 @@ final class TranscriptionViewModel: ObservableObject {
             batch = nil
             return
         }
+        // OCR-model loading phase begins here (release Whisper, then load the OCR model). Flag
+        // it so StatusView's shared `.loadingModel` state renders the OCR-specific label.
+        isLoadingOCRModel = true
         // Memory exclusivity: drop the Whisper pipeline before loading the OCR model.
         await transcriber.unload()
         do {
             state = .loadingModel
             try await ocr.prepare(modelDir: ocrModels.modelDir, progress: { _ in })
+            isLoadingOCRModel = false
             try Task.checkCancellation()
 
             var parts: [(name: String, text: String)] = []
@@ -301,12 +312,15 @@ final class TranscriptionViewModel: ObservableObject {
         } catch is CancellationError {
             state = .idle
             batch = nil
+            isLoadingOCRModel = false
         } catch let e as AppError {
             state = .error(e)
             batch = nil
+            isLoadingOCRModel = false
         } catch {
             state = .error(.ocrFailed(String(describing: error)))
             batch = nil
+            isLoadingOCRModel = false
         }
     }
 

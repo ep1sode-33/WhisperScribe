@@ -89,6 +89,27 @@ private final class GatedOCR: OCRProviding, @unchecked Sendable {
     func unload() async { prepared = false }
 }
 
+/// OCR fake that parks inside `prepare` on a `Gate`, giving a test a deterministic
+/// mid-prepare observation point to assert `isLoadingOCRModel == true` while the OCR model
+/// is loading. `recognize` returns per-file text immediately (no parking) so the batch can
+/// run to completion once prepare is resumed.
+private final class GatedPrepareOCR: OCRProviding, @unchecked Sendable {
+    let gate: Gate
+    var results: [String: String] = [:]
+    var prepared = false
+    init(gate: Gate) { self.gate = gate }
+    func prepare(modelDir: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
+        await gate.wait()
+        prepared = true; progress(1.0)
+    }
+    func recognize(imageAt url: URL, onChunk: @escaping @Sendable (String) -> Void) async throws -> String {
+        let text = results[url.lastPathComponent, default: "text-of-\(url.lastPathComponent)"]
+        onChunk(text)
+        return text
+    }
+    func unload() async { prepared = false }
+}
+
 private struct NoopDownloader: ModelDownloading {
     func download(variant: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         URL(fileURLWithPath: "/dev/null")
@@ -425,5 +446,31 @@ struct BatchPipelineTests {
         #expect(!FileManager.default.fileExists(atPath: mergedURL.path))
         let leftovers = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
         #expect(!leftovers.contains { $0.pathExtension == "txt" })
+    }
+
+    /// 12. `isLoadingOCRModel` gates StatusView's `.loadingModel` label: it must be true while
+    /// the OCR model is loading (parked in `prepare`, state `.loadingModel`) and false once the
+    /// batch completes. Uses a prepare-parking OCR fake for a deterministic mid-prepare probe.
+    @Test @MainActor func isLoadingOCRModelTrueDuringPrepareFalseAfter() async throws {
+        let dir = try tempDir()
+        let imgs = ["1.png", "2.png"].map { dir.appendingPathComponent($0) }
+        let (settings, restore) = isolatedSettings(); defer { restore() }
+        configured(settings)
+        let gate = Gate()
+        let ocr = GatedPrepareOCR(gate: gate)
+        ocr.results = ["1.png": "A", "2.png": "B"]
+        let vm = makeVM(settings: settings, ocr: ocr, ocrModels: try installedOCRModels(),
+                        merger: MergeService(chat: RecordingChat(reply: "M")),
+                        modelManager: try freshModelManager())
+
+        #expect(vm.isLoadingOCRModel == false)          // idle: flag clear
+        vm.start(urls: imgs)
+        await waitUntil { gate.waiterCount == 1 }        // parked inside prepare → OCR model loading
+        #expect(vm.isLoadingOCRModel == true)            // flag set during the load
+        guard case .loadingModel = vm.state else { Issue.record("expected .loadingModel, got \(vm.state)"); return }
+        gate.resumeNext()                                 // prepare returns; batch runs to done
+        await waitUntil { !vm.state.isBusy }
+        #expect(vm.isLoadingOCRModel == false)           // cleared once prepare completed
+        guard case .done = vm.state else { Issue.record("expected .done, got \(vm.state)"); return }
     }
 }

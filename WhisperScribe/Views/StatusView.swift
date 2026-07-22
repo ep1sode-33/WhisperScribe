@@ -14,7 +14,7 @@ struct StatusView: View {
                 EmptyView()
 
             case .loadingModel:
-                indeterminate(String(localized: "status.loadingModel"))
+                indeterminate(String(localized: loadingModelKey))
 
             case .extractingAudio:
                 indeterminate(String(localized: "status.extractingAudio"))
@@ -43,6 +43,12 @@ struct StatusView: View {
     }
 
     // MARK: - Subviews
+
+    /// The `.loadingModel` state is shared by the Whisper (audio) and OCR (image) pipelines;
+    /// `viewModel.isLoadingOCRModel` disambiguates which model is loading so the label is right.
+    private var loadingModelKey: String.LocalizationValue {
+        viewModel.isLoadingOCRModel ? "status.loadingOCRModel" : "status.loadingModel"
+    }
 
     /// Multi-file batch header, shown above the active stage while `viewModel.batch != nil`.
     /// Formats `batch.fileProgress` — "File i of N — filename".
@@ -135,7 +141,9 @@ struct StatusView: View {
             .padding(12)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
 
-            if let fileCount = viewModel.lastBatchFileCount {
+            // Only a genuine multi-file batch gets the "N files → M outputs" summary; a
+            // single-file job (fileCount == 1) would misread as "1 files → 2 outputs".
+            if let fileCount = viewModel.lastBatchFileCount, fileCount > 1 {
                 Text(String.localizedStringWithFormat(
                     NSLocalizedString("done.batchSummary", comment: ""),
                     fileCount, outputs.count))

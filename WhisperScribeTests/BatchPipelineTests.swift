@@ -315,6 +315,19 @@ struct BatchPipelineTests {
         #expect(vm.state == .error(.mixedBatch))
     }
 
+    /// 5b. Unsupported file (a `.pdf`) among images -> immediate .error(.unsupportedFile)
+    /// (synchronous). Guards F2: the DropZone no longer pre-filters, so an unsupported drop
+    /// reaches the classifier and surfaces a visible error instead of being silently swallowed.
+    @Test @MainActor func unsupportedFileInBatchIsImmediateError() async throws {
+        let (settings, restore) = isolatedSettings(); defer { restore() }
+        let vm = makeVM(settings: settings, ocr: FakeOCR(), ocrModels: try missingOCRModels(),
+                        merger: MergeService(chat: RecordingChat(reply: "X")), modelManager: try freshModelManager())
+        vm.start(urls: [URL(fileURLWithPath: "/tmp/a.png"),
+                        URL(fileURLWithPath: "/tmp/doc.pdf"),
+                        URL(fileURLWithPath: "/tmp/b.png")])
+        #expect(vm.state == .error(.unsupportedFile("doc.pdf")))
+    }
+
     /// 6. Cancel while OCR is parked mid-batch -> state returns to .idle.
     @Test @MainActor func cancelMidBatchReturnsIdle() async throws {
         let dir = try tempDir()

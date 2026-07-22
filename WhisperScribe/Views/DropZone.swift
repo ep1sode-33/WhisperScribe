@@ -39,9 +39,11 @@ struct DropZone: View {
 
     /// Resolve the file URL from *every* dropped provider, then deliver them in ONE `onPick`
     /// call. Provider order is preserved (a fixed slot array indexed by provider position);
-    /// `BatchClassifier` re-sorts into natural order downstream. Only audio/image URLs pass
-    /// the `isAcceptedURL` filter; a drop that yields none is silently ignored. Writes are
-    /// serialised on `lock` because provider completions fire on arbitrary queues.
+    /// `BatchClassifier` re-sorts into natural order downstream. EVERY resolved file URL is
+    /// delivered — unsupported files are NOT filtered here so the ViewModel's classifier can
+    /// throw `AppError.unsupportedFile` and surface a visible error (即时报错), rather than the
+    /// drop being silently swallowed. Writes are serialised on `lock` because provider
+    /// completions fire on arbitrary queues.
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
         let group = DispatchGroup()
         let lock = DispatchQueue(label: "DropZone.collect")
@@ -49,7 +51,7 @@ struct DropZone: View {
         for (index, provider) in providers.enumerated() {
             group.enter()
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                if let url, BatchClassifier.isAcceptedURL(url) {
+                if let url {
                     lock.sync { slots[index] = url }
                 }
                 group.leave()

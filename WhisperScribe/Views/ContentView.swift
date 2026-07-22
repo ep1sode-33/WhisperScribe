@@ -6,6 +6,14 @@ struct ContentView: View {
     @EnvironmentObject var viewModel: TranscriptionViewModel
     @EnvironmentObject var settings: SettingsStore
     @EnvironmentObject var modelManager: ModelManager
+    @EnvironmentObject var ocrModels: OCRModelManager
+
+    /// Either engine ready is enough to accept a drop — each batch path still guards its own
+    /// model (audio: `modelNotInstalled`; image: `ocrModelMissing`). The `noModelView` shows
+    /// only when NEITHER is ready.
+    private var canAcceptInput: Bool {
+        modelManager.isReady || ocrModels.isReady
+    }
 
     private var isIdle: Bool {
         if case .idle = viewModel.state { return true }
@@ -20,7 +28,7 @@ struct ContentView: View {
 
             Group {
                 if isIdle {
-                    if modelManager.isReady {
+                    if canAcceptInput {
                         DropZone { urls in
                             viewModel.start(urls: urls)
                         }
@@ -41,7 +49,7 @@ struct ContentView: View {
                 } label: {
                     Label("common.chooseFile", systemImage: "doc.badge.plus")
                 }
-                .disabled(viewModel.state.isBusy || !modelManager.isReady)
+                .disabled(viewModel.state.isBusy || !canAcceptInput)
             }
             ToolbarItem(placement: .automatic) {
                 SettingsLink {
@@ -57,7 +65,7 @@ struct ContentView: View {
                 .font(.title2)
                 .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text("WhisperScribe")
+                Text(verbatim: "OmniScribe")
                     .font(.headline)
                 Text("common.appSubtitle")
                     .font(.caption)

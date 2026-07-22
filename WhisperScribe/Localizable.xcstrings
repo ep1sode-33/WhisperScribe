@@ -603,7 +603,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose File…"
+            "value": "Choose Files…"
           }
         },
         "zh-Hans": {
@@ -673,31 +673,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Local speech to subtitles"
+            "value": "Local audio & images to text"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地语音转字幕"
+            "value": "本地音频/图片转文字"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "本機語音轉字幕"
+            "value": "本地音訊/圖片轉文字"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ローカル音声を字幕に変換"
+            "value": "音声・画像をローカルでテキストに"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로컬 음성을 자막으로 변환"
+            "value": "오디오·이미지를 로컬에서 텍스트로"
           }
         }
       }
@@ -743,31 +743,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose an audio or video file to transcribe"
+            "value": "Choose audio files or images to transcribe"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择要转录的音频或视频文件"
+            "value": "选择要转写的音频或图片"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇要轉錄的音訊或視訊檔案"
+            "value": "選擇要轉寫的音訊或圖片"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文字起こしする音声または動画ファイルを選択してください"
+            "value": "文字起こしする音声または画像を選択"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "전사할 오디오 또는 비디오 파일을 선택하세요"
+            "value": "변환할 오디오 또는 이미지를 선택"
           }
         }
       }
@@ -778,31 +778,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drop an audio/video file"
+            "value": "Drop audio files or images"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖入音频/视频文件"
+            "value": "拖入音频或图片"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖入音訊／視訊檔案"
+            "value": "拖入音訊或圖片"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "音声／動画ファイルをドロップ"
+            "value": "音声または画像をドロップ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오디오/비디오 파일을 끌어다 놓으세요"
+            "value": "오디오 또는 이미지를 드롭"
           }
         }
       }

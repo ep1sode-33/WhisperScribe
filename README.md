@@ -82,7 +82,7 @@ automatically by [the release workflow](.github/workflows/release.yml) when a
 
 1. Drag files onto the window (or click **Choose Files…**) — one or more audio files, or one or more images. A batch must be all one kind.
 2. **First run:** open **Settings** (⌘,) → **Model** and pick a Whisper model (large-v3, large-v3-turbo, or distil-large-v3); it downloads itself with a progress bar. To OCR images, download the **DeepSeek-OCR-2** model (~3GB) from the same **Model** section. Also here: cleanup level, language, output location, and your BYOK LLM endpoint (then **Test Connection**).
-3. Watch it transcribe / OCR → clean → merge → export. Outputs land next to the source by default: a single file keeps its `.srt` + `.txt`; a multi-file batch writes per-file `.srt` (for audio) and one merged `.txt`.
+3. Watch it transcribe / OCR → clean → merge → export. Outputs land next to the source by default. `.srt` is **audio-only**: a single audio file keeps its `.srt` + `.txt`, while a single image produces just one merged `.txt` (no `.srt`); a multi-file batch writes per-file `.srt` (audio only) and one merged `.txt`.
 
 ### Cleanup levels
 

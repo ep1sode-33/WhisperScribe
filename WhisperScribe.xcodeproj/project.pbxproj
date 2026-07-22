@@ -13,6 +13,7 @@
 		703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */; };
 		722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */; };
 		830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8506F918B01095773E0A6D /* WhisperModelTests.swift */; };
+		9F1F6E5443EFFF7C5E365994 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = CDB84D826CA2C83352A8D2B2 /* Hub */; };
 		A51889222013BC74C5860A0D /* MergeServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EB6EF9CEA139A0C155EFB5A /* MergeServiceTests.swift */; };
 		AA000000000000000000000A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000000C /* WhisperKit */; };
 		AF56D383D6EAD7A3452F2BEC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F0BBAC8C2B85469A650F6D6 /* Cocoa.framework */; };
@@ -73,6 +74,7 @@
 			files = (
 				63ECE88B95FBDC6E92B0A9F7 /* DeepSeekOCR2Kit in Frameworks */,
 				AA000000000000000000000A /* WhisperKit in Frameworks */,
+				9F1F6E5443EFFF7C5E365994 /* Hub in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,6 +154,7 @@
 			packageProductDependencies = (
 				6E9ABDD43D842DDB0E00258D /* DeepSeekOCR2Kit */,
 				AA000000000000000000000C /* WhisperKit */,
+				CDB84D826CA2C83352A8D2B2 /* Hub */,
 			);
 			productName = WhisperScribe;
 			productReference = AA0000000000000000000006 /* WhisperScribe.app */;
@@ -207,6 +210,7 @@
 			packageReferences = (
 				0B3631094DF23F39DC9A1B43 /* XCLocalSwiftPackageReference "DeepSeekOCR2Kit" */,
 				AA000000000000000000000B /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				ACC1EE0976D67A301A43ED0E /* XCRemoteSwiftPackageReference "swift-transformers" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA0000000000000000000005 /* Products */;
@@ -445,6 +449,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		ACC1EE0976D67A301A43ED0E /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -456,6 +468,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA000000000000000000000B /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
+		};
+		CDB84D826CA2C83352A8D2B2 /* Hub */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ACC1EE0976D67A301A43ED0E /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Hub;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

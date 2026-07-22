@@ -7,10 +7,16 @@ final class AppModel: ObservableObject {
     let transcriber = TranscriberService()
     let cleaner = LLMCleaner()
     let modelManager = ModelManager(downloader: WhisperKitDownloader())
+    let ocrModels = OCRModelManager()
+    let ocr = OCRService()
+    let merger = MergeService()
     lazy var viewModel = TranscriptionViewModel(
         settings: settings,
         transcriber: transcriber,
         cleaner: cleaner,
-        modelManager: modelManager
+        modelManager: modelManager,
+        ocr: ocr,
+        ocrModels: ocrModels,
+        merger: merger
     )
 }

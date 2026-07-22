@@ -6,6 +6,14 @@ struct ContentView: View {
     @EnvironmentObject var viewModel: TranscriptionViewModel
     @EnvironmentObject var settings: SettingsStore
     @EnvironmentObject var modelManager: ModelManager
+    @EnvironmentObject var ocrModels: OCRModelManager
+
+    /// Either engine ready is enough to accept a drop — each batch path still guards its own
+    /// model (audio: `modelNotInstalled`; image: `ocrModelMissing`). The `noModelView` shows
+    /// only when NEITHER is ready.
+    private var canAcceptInput: Bool {
+        modelManager.isReady || ocrModels.isReady
+    }
 
     private var isIdle: Bool {
         if case .idle = viewModel.state { return true }
@@ -20,9 +28,9 @@ struct ContentView: View {
 
             Group {
                 if isIdle {
-                    if modelManager.isReady {
-                        DropZone { url in
-                            viewModel.start(url: url)
+                    if canAcceptInput {
+                        DropZone { urls in
+                            viewModel.start(urls: urls)
                         }
                         .padding(20)
                     } else {
@@ -41,7 +49,7 @@ struct ContentView: View {
                 } label: {
                     Label("common.chooseFile", systemImage: "doc.badge.plus")
                 }
-                .disabled(viewModel.state.isBusy || !modelManager.isReady)
+                .disabled(viewModel.state.isBusy || !canAcceptInput)
             }
             ToolbarItem(placement: .automatic) {
                 SettingsLink {
@@ -57,7 +65,7 @@ struct ContentView: View {
                 .font(.title2)
                 .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
-                Text("WhisperScribe")
+                Text(verbatim: "OmniScribe")
                     .font(.headline)
                 Text("common.appSubtitle")
                     .font(.caption)
@@ -87,14 +95,14 @@ struct ContentView: View {
 
     private func chooseFile() {
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.audio, .audiovisualContent]
+        panel.allowedContentTypes = [.audio, .audiovisualContent, .image]
         panel.prompt = String(localized: "common.choose")
         panel.message = String(localized: "common.chooseMediaMessage")
-        if panel.runModal() == .OK, let url = panel.url {
-            viewModel.start(url: url)
+        if panel.runModal() == .OK, !panel.urls.isEmpty {
+            viewModel.start(urls: panel.urls)
         }
     }
 }

@@ -34,4 +34,37 @@ enum FileNaming {
             counter += 1
         }
     }
+
+    /// URL for the single merged `.txt` produced by a batch job.
+    /// Base name = firstSource without extension + " merged"; directory rule
+    /// matches `outputURLs` (outputDir ?? source directory). Under `.uniquify`,
+    /// probes a single txt file and appends " 2"/" 3"… to avoid overwriting.
+    static func mergedTextURL(firstSource: URL, outputDir: URL?, overwrite: OverwritePolicy) -> URL {
+        let base = "\(firstSource.deletingPathExtension().lastPathComponent) merged"
+        let dir = outputDir ?? firstSource.deletingLastPathComponent()
+
+        func txt(_ suffix: String) -> URL {
+            dir.appendingPathComponent("\(base)\(suffix).txt")
+        }
+
+        if overwrite == .overwrite {
+            return txt("")
+        }
+
+        func isFree(_ suffix: String) -> Bool {
+            !FileManager.default.fileExists(atPath: txt(suffix).path)
+        }
+
+        if isFree("") {
+            return txt("")
+        }
+        var counter = 2
+        while true {
+            let suffix = " \(counter)"
+            if isFree(suffix) {
+                return txt(suffix)
+            }
+            counter += 1
+        }
+    }
 }

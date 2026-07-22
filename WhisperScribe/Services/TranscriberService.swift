@@ -2,13 +2,33 @@ import Foundation
 import AVFoundation
 import WhisperKit
 
+/// Protocol seam over the WhisperKit-backed transcriber so the batch pipeline can be
+/// unit-tested with a fake (no ~1.5 GB model load). Extracted verbatim from
+/// `TranscriberService`'s existing signatures; production injects the real actor unchanged.
+protocol Transcribing: Sendable {
+    func prepare(modelFolder: String) async throws
+    func transcribe(samples: [Float],
+                    language: String?,
+                    progress: @escaping @Sendable (Double) -> Void) async throws -> [TimedSegment]
+    /// Releases the loaded pipeline, freeing model memory (memory exclusivity with OCR).
+    func unload() async
+}
+
 /// Wraps a lazily-loaded WhisperKit pipeline and produces `TimedSegment`s.
-actor TranscriberService {
+actor TranscriberService: Transcribing {
 
     private var pipe: WhisperKit?
     private var loadedFolder: String?
 
     init() {}
+
+    /// Drops the loaded WhisperKit pipeline, freeing model memory. The next `prepare`
+    /// reloads from disk. Symmetric to `OCRService.unload` — only one large model resident
+    /// at a time.
+    func unload() {
+        pipe = nil
+        loadedFolder = nil
+    }
 
     /// Idempotently load the WhisperKit pipeline for `modelFolder`. Reloads if the folder
     /// changed since the last load (so switching models in Settings takes effect next job).

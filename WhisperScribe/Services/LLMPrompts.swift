@@ -112,4 +112,26 @@ enum LLMPrompts {
         \(text)
         """
     }
+
+    // MARK: - Merge (multi-file dedup / stitch)
+
+    /// System prompt for stitching several ordered fragments (consecutive
+    /// screenshots or split-recording transcripts) into one deduplicated text.
+    static func mergeSystem(language: String?) -> String {
+        """
+        你是文本合并引擎。用户提供多份按顺序排列的文字片段（来自连续截图或分段录音的识别结果）。任务：
+        1. 按给定顺序合并为一篇连贯文本；
+        2. 相邻片段若有重叠区域（前一份结尾与后一份开头重复），只保留一份；
+        3. 删除页眉、页脚、页码、状态栏时间等与正文无关的重复元素；
+        4. 整份内容与前一份基本相同的片段，整体丢弃；
+        5. 不改写、不总结、不增删正文语义；保持原语言。
+        \(multilingualRules)\(languageNote(language))
+        只输出合并后的正文，不要任何解释。
+        """
+    }
+
+    /// User message carrying the assembled, ordered fragments.
+    static func mergeUser(parts: String) -> String {
+        "以下是按顺序编号的片段：\n\n" + parts
+    }
 }

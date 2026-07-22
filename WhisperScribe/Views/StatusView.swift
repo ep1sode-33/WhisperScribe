@@ -5,12 +5,16 @@ struct StatusView: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            if let batch = viewModel.batch {
+                batchHeader(batch)
+            }
+
             switch viewModel.state {
             case .idle:
                 EmptyView()
 
             case .loadingModel:
-                indeterminate(String(localized: "status.loadingModel"))
+                indeterminate(String(localized: loadingModelKey))
 
             case .extractingAudio:
                 indeterminate(String(localized: "status.extractingAudio"))
@@ -18,11 +22,17 @@ struct StatusView: View {
             case .transcribing(let p):
                 transcribing(String(localized: "status.transcribing"), fraction: p)
 
+            case .recognizing(let p):
+                transcribing(String(localized: "status.recognizing"), fraction: p)
+
             case .cleaning(let p, let note):
                 cleaning(String(localized: "status.cleaning"), fraction: p, note: note)
 
-            case .done(let srt, let txt, let warnings):
-                doneView(srt: srt, txt: txt, warnings: warnings)
+            case .merging(let p, let note):
+                cleaning(String(localized: "status.merging"), fraction: p, note: note)
+
+            case .done(let outputs, let warnings):
+                doneView(outputs: outputs, warnings: warnings)
 
             case .error(let e):
                 errorView(e)
@@ -33,6 +43,24 @@ struct StatusView: View {
     }
 
     // MARK: - Subviews
+
+    /// The `.loadingModel` state is shared by the Whisper (audio) and OCR (image) pipelines;
+    /// `viewModel.isLoadingOCRModel` disambiguates which model is loading so the label is right.
+    private var loadingModelKey: String.LocalizationValue {
+        viewModel.isLoadingOCRModel ? "status.loadingOCRModel" : "status.loadingModel"
+    }
+
+    /// Multi-file batch header, shown above the active stage while `viewModel.batch != nil`.
+    /// Formats `batch.fileProgress` — "File i of N — filename".
+    private func batchHeader(_ batch: BatchProgress) -> some View {
+        Text(String.localizedStringWithFormat(
+            NSLocalizedString("batch.fileProgress", comment: ""),
+            batch.index, batch.count, batch.fileName))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
 
     private func indeterminate(_ label: String) -> some View {
         VStack(spacing: 14) {
@@ -94,7 +122,7 @@ struct StatusView: View {
         }
     }
 
-    private func doneView(srt: URL, txt: URL, warnings: [String]) -> some View {
+    private func doneView(outputs: [URL], warnings: [String]) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 44))
@@ -103,13 +131,25 @@ struct StatusView: View {
                 .font(.title3.weight(.semibold))
 
             VStack(alignment: .leading, spacing: 6) {
-                Label(srt.lastPathComponent, systemImage: "doc.text")
-                Label(txt.lastPathComponent, systemImage: "doc.plaintext")
+                ForEach(outputs, id: \.self) { url in
+                    Label(url.lastPathComponent,
+                          systemImage: url.pathExtension == "srt" ? "doc.text" : "doc.plaintext")
+                }
             }
             .font(.callout)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+
+            // Only a genuine multi-file batch gets the "N files → M outputs" summary; a
+            // single-file job (fileCount == 1) would misread as "1 files → 2 outputs".
+            if let fileCount = viewModel.lastBatchFileCount, fileCount > 1 {
+                Text(String.localizedStringWithFormat(
+                    NSLocalizedString("done.batchSummary", comment: ""),
+                    fileCount, outputs.count))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             if !warnings.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {

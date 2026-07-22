@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: SettingsStore
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var modelManager: ModelManager
+    @EnvironmentObject var ocrModels: OCRModelManager
 
     @State private var testing = false
     @State private var testResult: TestResult?
@@ -17,6 +18,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             modelSection
+            ocrModelSection
             transcriptionSection
             cleanupSection
             llmSection
@@ -94,6 +96,65 @@ struct SettingsView: View {
                 }
             } else {
                 Button("model.download") { modelManager.download(model) }
+            }
+        }
+    }
+
+    // MARK: - OCR 模型
+
+    /// Single-entry sibling to `modelSection`: the DeepSeek-OCR-2 checkpoint has no variant
+    /// catalogue, so one row with a three-state accessory bound to `OCRModelManager`.
+    private var ocrModelSection: some View {
+        Section {
+            ocrModelRow
+        }
+    }
+
+    private var ocrModelRow: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("settings.ocrModel.title").font(.body)
+                HStack(spacing: 6) {
+                    Text("settings.ocrModel.tagline")
+                    Text(verbatim: "·")
+                    Text("settings.ocrModel.size")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            ocrModelAccessory
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private var ocrModelAccessory: some View {
+        switch ocrModels.state {
+        case .downloading(let f):
+            HStack(spacing: 8) {
+                ProgressView(value: f).progressViewStyle(.linear).frame(width: 90)
+                Text("\(Int(f * 100))%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Button("common.cancel") { ocrModels.cancelDownload() }
+            }
+        case .failed(let msg):
+            HStack(spacing: 8) {
+                Label(msg, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange).lineLimit(1)
+                Button("model.retry") { ocrModels.download() }
+            }
+        case .idle:
+            if ocrModels.installed {
+                HStack(spacing: 10) {
+                    Label("model.installed", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(.green)
+                    Button("model.delete", role: .destructive) { ocrModels.delete() }
+                        .font(.caption)
+                }
+            } else {
+                Button("model.download") { ocrModels.download() }
             }
         }
     }

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		608CDE4879038B935825E130 /* OCRModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAA36FC6147F345B686ED1E /* OCRModelManagerTests.swift */; };
 		62F767EB4737E5DE991D208B /* MergedNamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */; };
 		63ECE88B95FBDC6E92B0A9F7 /* DeepSeekOCR2Kit in Frameworks */ = {isa = PBXBuildFile; productRef = 6E9ABDD43D842DDB0E00258D /* DeepSeekOCR2Kit */; };
 		703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */; };
@@ -39,6 +40,7 @@
 		AF8506F918B01095773E0A6D /* WhisperModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WhisperModelTests.swift; sourceTree = "<group>"; };
 		B93B8E98B733749629400F3D /* OCRServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OCRServiceTests.swift; sourceTree = "<group>"; };
 		BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelManagerTests.swift; sourceTree = "<group>"; };
+		BAAA36FC6147F345B686ED1E /* OCRModelManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OCRModelManagerTests.swift; sourceTree = "<group>"; };
 		FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BatchClassifierTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -95,6 +97,7 @@
 				6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */,
 				0EB6EF9CEA139A0C155EFB5A /* MergeServiceTests.swift */,
 				B93B8E98B733749629400F3D /* OCRServiceTests.swift */,
+				BAAA36FC6147F345B686ED1E /* OCRModelManagerTests.swift */,
 			);
 			name = WhisperScribeTests;
 			path = WhisperScribeTests;
@@ -245,6 +248,7 @@
 				62F767EB4737E5DE991D208B /* MergedNamingTests.swift in Sources */,
 				A51889222013BC74C5860A0D /* MergeServiceTests.swift in Sources */,
 				E09A075F27DE5345C505BE57 /* OCRServiceTests.swift in Sources */,
+				608CDE4879038B935825E130 /* OCRModelManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

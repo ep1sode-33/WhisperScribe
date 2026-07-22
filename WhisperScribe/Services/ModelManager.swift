@@ -1,16 +1,20 @@
 import Foundation
 import SwiftUI
 
+/// Progress state for a single model download. Promoted from a nested `ModelManager`
+/// type to file scope (behaviour-preserving — no external code referenced
+/// `ModelManager.DownloadState`) so the sibling `OCRModelManager` publishes the same
+/// `DownloadState` without duplicating it.
+enum DownloadState: Equatable {
+    case idle
+    case downloading(Double)   // 0...1
+    case failed(String)
+}
+
 /// Single source of truth for Whisper model state: which model is selected, which are
 /// installed on disk, and per-model download progress. Injected as an `EnvironmentObject`.
 @MainActor
 final class ModelManager: ObservableObject {
-
-    enum DownloadState: Equatable {
-        case idle
-        case downloading(Double)   // 0...1
-        case failed(String)
-    }
 
     @Published var selectedModelID: String {
         didSet { defaults.set(selectedModelID, forKey: Self.selectedKey) }

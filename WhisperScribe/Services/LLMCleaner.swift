@@ -22,22 +22,9 @@ enum LLMCleanerError: LocalizedError {
     }
 }
 
-/// Low-level transport / HTTP errors used internally to drive retry decisions.
-private enum LLMRequestError: LocalizedError {
-    case badURL
-    case httpStatus(Int, retryAfter: TimeInterval?)
-    case emptyContent
-
-    var errorDescription: String? {
-        switch self {
-        case .badURL:                  return String(localized: "error.badBaseURL")
-        case .httpStatus(let code, _): return String.localizedStringWithFormat(NSLocalizedString("error.httpStatus", comment: ""), code)
-        case .emptyContent:            return String(localized: "error.emptyResponse")
-        }
-    }
-}
-
 /// BYOK OpenAI-compatible cleanup. Timestamp-preserving two-pass design.
+/// HTTP transport, endpoint resolution, SSE decoding, backoff and
+/// `LLMRequestError` now live in `LLMTransport` (behavior-preserving extraction).
 actor LLMCleaner {
 
     init() {}
@@ -47,7 +34,6 @@ actor LLMCleaner {
     private let maxCharsPerBatch = 6000
     private let maxConcurrentBatches = 6
     private let maxPassBChunkChars = 6000
-    private let requestTimeout: TimeInterval = 120
 
     // MARK: - Live progress state (actor-isolated → data-race-free across awaits)
 
@@ -271,20 +257,20 @@ actor LLMCleaner {
                 }
                 // Parse / validation failure -> retry with a corrective nudge.
                 nudge = LLMPrompts.correctiveNudge(count: batch.count, indices: batch.map { $0.index })
-                if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: nil) }
+                if attempt < 2 { try await LLMTransport.sleepBackoff(attempt: attempt, retryAfter: nil) }
             } catch is CancellationError {
                 throw CancellationError()
             } catch LLMRequestError.badURL {
                 return nil
             } catch LLMRequestError.httpStatus(let code, let ra) {
                 if code == 429 || (500...599).contains(code) {
-                    if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: ra) }
+                    if attempt < 2 { try await LLMTransport.sleepBackoff(attempt: attempt, retryAfter: ra) }
                 } else {
                     return nil   // non-retryable client error (401/400/404…)
                 }
             } catch {
                 // Transport error / timeout / empty content -> retryable.
-                if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: nil) }
+                if attempt < 2 { try await LLMTransport.sleepBackoff(attempt: attempt, retryAfter: nil) }
             }
         }
         return nil
@@ -410,19 +396,19 @@ actor LLMCleaner {
                 if (lower...upper).contains(trimmed.count) {
                     return cleaned
                 }
-                if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: nil) }
+                if attempt < 2 { try await LLMTransport.sleepBackoff(attempt: attempt, retryAfter: nil) }
             } catch is CancellationError {
                 throw CancellationError()
             } catch LLMRequestError.badURL {
                 return nil
             } catch LLMRequestError.httpStatus(let code, let ra) {
                 if code == 429 || (500...599).contains(code) {
-                    if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: ra) }
+                    if attempt < 2 { try await LLMTransport.sleepBackoff(attempt: attempt, retryAfter: ra) }
                 } else {
                     return nil
                 }
             } catch {
-                if attempt < 2 { try await sleepBackoff(attempt: attempt, retryAfter: nil) }
+                if attempt < 2 { try await LLMTransport.sleepBackoff(attempt: attempt, retryAfter: nil) }
             }
         }
         return nil
@@ -501,94 +487,31 @@ actor LLMCleaner {
 
     // MARK: - HTTP
 
-    private func endpointURL(_ base: String) -> URL? {
-        var s = base.trimmingCharacters(in: .whitespacesAndNewlines)
-        while s.hasSuffix("/") { s.removeLast() }
-        guard !s.isEmpty else { return nil }
-        if s.hasSuffix("/chat/completions") { return URL(string: s) }
-        // Cloudflare AI Gateway unified endpoint: ".../compat" -> ".../compat/chat/completions"
-        if s.hasSuffix("/compat") { return URL(string: s + "/chat/completions") }
-        if s.hasSuffix("/v1") { return URL(string: s + "/chat/completions") }
-        return URL(string: s + "/v1/chat/completions")
-    }
-
-    private struct ChatMessage: Encodable { let role: String; let content: String }
-    private struct ChatRequestBody: Encodable {
-        let model: String
-        let messages: [ChatMessage]
-        let temperature: Int
-        let top_p: Int
-        let max_tokens: Int?   // omitted from JSON when nil (so reasoning models aren't starved)
-        let stream: Bool
-    }
-    /// One streamed chat-completions chunk (OpenAI-compatible SSE).
-    private struct StreamChunk: Decodable {
-        struct Choice: Decodable {
-            struct Delta: Decodable { let content: String?; let reasoning_content: String? }
-            let delta: Delta?
-            let finish_reason: String?
-        }
-        let choices: [Choice]?
-    }
-
     /// One streamed chat-completions call. Returns the concatenated `delta.content`
     /// (the answer). `reasoning_content` is chain-of-thought: counted toward the live
     /// counter but NOT returned. Throws LLMRequestError or the underlying transport error.
+    ///
+    /// The request/SSE machinery now lives in `LLMTransport`; this wrapper only owns
+    /// the actor-isolated live-progress counter. It consumes `LLMTransport.chatDeltas`
+    /// on the actor and reproduces the original per-chunk "count content + reasoning,
+    /// then throttle" cadence — so progress/parse/return semantics are unchanged.
     private func performChat(config: LLMConfig,
                              system: String?,
                              user: String,
                              maxTokens: Int?,
                              reportLiveProgress: Bool = true) async throws -> String {
-        guard let url = endpointURL(config.baseURL) else { throw LLMRequestError.badURL }
-
-        var messages: [ChatMessage] = []
-        if let system { messages.append(ChatMessage(role: "system", content: system)) }
-        messages.append(ChatMessage(role: "user", content: user))
-
-        let body = ChatRequestBody(model: config.model,
-                                   messages: messages,
-                                   temperature: 0,
-                                   top_p: 1,
-                                   max_tokens: maxTokens,
-                                   stream: true)
-
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.timeoutInterval = requestTimeout
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // Some gateways (e.g. Cloudflare AI Gateway) reject non-browser User-Agents.
-        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                     forHTTPHeaderField: "User-Agent")
-        let key = config.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !key.isEmpty { req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization") }
-        req.httpBody = try JSONEncoder().encode(body)
-
-        let (bytes, response) = try await URLSession.shared.bytes(for: req)
-
-        guard let http = response as? HTTPURLResponse else { throw LLMRequestError.emptyContent }
-        if !(200...299).contains(http.statusCode) {
-            let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { TimeInterval($0) }
-            throw LLMRequestError.httpStatus(http.statusCode, retryAfter: retryAfter)
-        }
-
         var finalContent = ""
-        let decoder = JSONDecoder()
 
-        for try await line in bytes.lines {
+        for try await delta in LLMTransport.chatDeltas(config: config,
+                                                       system: system ?? "",
+                                                       user: user,
+                                                       maxTokens: maxTokens) {
             try Task.checkCancellation()
-            guard line.hasPrefix("data:") else { continue }
-            let payload = line.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
-            if payload == "[DONE]" { break }
-            guard let d = payload.data(using: .utf8),
-                  let chunk = try? decoder.decode(StreamChunk.self, from: d) else {
-                continue   // ignore a single malformed line; don't abort the stream
-            }
-            guard let delta = chunk.choices?.first?.delta else { continue }
             if let c = delta.content {
                 finalContent += c
                 if reportLiveProgress { generatedChars += c.count }
             }
-            if reportLiveProgress, let r = delta.reasoning_content {
+            if reportLiveProgress, let r = delta.reasoning {
                 // Chain-of-thought: counts toward the live counter only.
                 generatedChars += r.count
             }
@@ -597,21 +520,12 @@ actor LLMCleaner {
                 emit()
             }
         }
+        try Task.checkCancellation()
 
         if reportLiveProgress { emit() }   // final count for this stream
 
         if finalContent.isEmpty { throw LLMRequestError.emptyContent }
         return finalContent
-    }
-
-    /// Exponential backoff with per-attempt jitter; honors Retry-After when present.
-    private func sleepBackoff(attempt: Int, retryAfter: TimeInterval?) async throws {
-        let base: [TimeInterval] = [0.5, 2.0, 8.0]
-        let b = attempt < base.count ? base[attempt] : 8.0
-        let jitter = Double(attempt) * 0.13 + 0.07
-        let wait = (retryAfter ?? b) + jitter
-        let safe = wait.isFinite ? min(max(wait, 0), 30) : 0   // clamp: no negative/NaN/huge Retry-After
-        try await Task.sleep(nanoseconds: UInt64(safe * 1_000_000_000))
     }
 
     // MARK: - Parsing (defensive, stop at first success)

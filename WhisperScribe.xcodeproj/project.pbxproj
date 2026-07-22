@@ -11,6 +11,7 @@
 		703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */; };
 		722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */; };
 		830FFD61577B18C025F15720 /* WhisperModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8506F918B01095773E0A6D /* WhisperModelTests.swift */; };
+		A51889222013BC74C5860A0D /* MergeServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EB6EF9CEA139A0C155EFB5A /* MergeServiceTests.swift */; };
 		AA000000000000000000000A /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000000C /* WhisperKit */; };
 		AF56D383D6EAD7A3452F2BEC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F0BBAC8C2B85469A650F6D6 /* Cocoa.framework */; };
 		B1C32B8BF6BF4A7A5993B7DF /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 918149AB2C192E219C04F3D6 /* SmokeTests.swift */; };
@@ -27,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0EB6EF9CEA139A0C155EFB5A /* MergeServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MergeServiceTests.swift; sourceTree = "<group>"; };
 		0F0BBAC8C2B85469A650F6D6 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		6070727F8692C80EAE5F071F /* WhisperScribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WhisperScribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MergedNamingTests.swift; sourceTree = "<group>"; };
@@ -87,6 +89,7 @@
 				BA57AD4FA93C06F3472D7C93 /* ModelManagerTests.swift */,
 				FA8181301AAA33ECD1896559 /* BatchClassifierTests.swift */,
 				6B7D9CDF3E19FF4B26D673A0 /* MergedNamingTests.swift */,
+				0EB6EF9CEA139A0C155EFB5A /* MergeServiceTests.swift */,
 			);
 			name = WhisperScribeTests;
 			path = WhisperScribeTests;
@@ -233,6 +236,7 @@
 				722485CCC90FDDE373153158 /* ModelManagerTests.swift in Sources */,
 				703CFD740461567B3B75DBA4 /* BatchClassifierTests.swift in Sources */,
 				62F767EB4737E5DE991D208B /* MergedNamingTests.swift in Sources */,
+				A51889222013BC74C5860A0D /* MergeServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

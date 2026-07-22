@@ -18,11 +18,17 @@ struct StatusView: View {
             case .transcribing(let p):
                 transcribing(String(localized: "status.transcribing"), fraction: p)
 
+            case .recognizing(let p):
+                transcribing(String(localized: "status.recognizing"), fraction: p)
+
             case .cleaning(let p, let note):
                 cleaning(String(localized: "status.cleaning"), fraction: p, note: note)
 
-            case .done(let srt, let txt, let warnings):
-                doneView(srt: srt, txt: txt, warnings: warnings)
+            case .merging(let p, let note):
+                cleaning(String(localized: "status.merging"), fraction: p, note: note)
+
+            case .done(let outputs, let warnings):
+                doneView(outputs: outputs, warnings: warnings)
 
             case .error(let e):
                 errorView(e)
@@ -94,7 +100,7 @@ struct StatusView: View {
         }
     }
 
-    private func doneView(srt: URL, txt: URL, warnings: [String]) -> some View {
+    private func doneView(outputs: [URL], warnings: [String]) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 44))
@@ -103,8 +109,10 @@ struct StatusView: View {
                 .font(.title3.weight(.semibold))
 
             VStack(alignment: .leading, spacing: 6) {
-                Label(srt.lastPathComponent, systemImage: "doc.text")
-                Label(txt.lastPathComponent, systemImage: "doc.plaintext")
+                ForEach(outputs, id: \.self) { url in
+                    Label(url.lastPathComponent,
+                          systemImage: url.pathExtension == "srt" ? "doc.text" : "doc.plaintext")
+                }
             }
             .font(.callout)
             .frame(maxWidth: .infinity, alignment: .leading)

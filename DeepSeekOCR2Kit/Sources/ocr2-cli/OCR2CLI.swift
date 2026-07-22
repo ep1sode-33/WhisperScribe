@@ -26,9 +26,7 @@ struct OCR2CLI: AsyncParsableCommand {
     mutating func run() async throws {
         guard let dir = modelDir ?? ProcessInfo.processInfo.environment["OCR2_MODEL_DIR"]
         else { throw ValidationError("--model-dir or OCR2_MODEL_DIR required") }
-        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: image) as CFURL, nil),
-            let cg = CGImageSourceCreateImageAtIndex(src, 0, nil)
-        else { throw ValidationError("cannot read image: \(image)") }
+        let cg = try Self.loadOrientedImage(path: image)
 
         let session = try await OCR2Session.load(from: URL(fileURLWithPath: dir)) {
             FileHandle.standardError.write("\rloading \(Int($0 * 100))%".data(using: .utf8)!)
@@ -57,6 +55,45 @@ struct OCR2CLI: AsyncParsableCommand {
                 FileHandle.standardError.write(line.data(using: .utf8)!)
             }
         }
+    }
+
+    /// Loads `path` as an orientation-normalized `CGImage`. Cameras and phones
+    /// store pixels in the sensor's native layout and record the display
+    /// rotation as an EXIF `Orientation` tag; a plain
+    /// `CGImageSourceCreateImageAtIndex` returns those un-rotated pixels, so a
+    /// portrait photo shot sideways would reach the processor rotated. When the
+    /// tag is not `.up` (1) we route through ImageIO's thumbnail path with
+    /// `kCGImageSourceCreateThumbnailWithTransform: true`, which bakes the
+    /// orientation transform into the pixels. `kCGImageSourceThumbnailMaxPixelSize`
+    /// is pinned to the image's larger dimension so nothing is downscaled (the
+    /// value is orientation-invariant: a 90 degree tag swaps width/height but not
+    /// their max). Upright images (the common case, and every parity fixture)
+    /// take the plain decode path unchanged.
+    static func loadOrientedImage(path: String) throws -> CGImage {
+        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil)
+        else { throw ValidationError("cannot read image: \(path)") }
+
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+        let orientation = (props?[kCGImagePropertyOrientation] as? UInt32) ?? 1
+
+        if orientation == 1 {
+            guard let cg = CGImageSourceCreateImageAtIndex(src, 0, nil)
+            else { throw ValidationError("cannot decode image: \(path)") }
+            return cg
+        }
+
+        var options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+        ]
+        let w = (props?[kCGImagePropertyPixelWidth] as? Int) ?? 0
+        let h = (props?[kCGImagePropertyPixelHeight] as? Int) ?? 0
+        if max(w, h) > 0 {
+            options[kCGImageSourceThumbnailMaxPixelSize] = max(w, h)
+        }
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
+        else { throw ValidationError("cannot decode image: \(path)") }
+        return cg
     }
 }
 
